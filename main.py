@@ -1,12 +1,46 @@
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field as PydanticField
 from typing import Optional
+from contextlib import asynccontextmanager
+from sqlmodel import SQLModel, Field as SQLField, Session, create_engine, select
 
-app = FastAPI(title="FastAPI Todo API")
 
 
-todos = [
+""" 
+连接 SQLite 数据库
+"""
+sqlite_url = "sqlite:///todos.db"   # 在当前项目目录下创建或使用 todos.db 这个 SQLite 数据库文件
+
+engine = create_engine(
+    sqlite_url, # 连接哪个数据库
+    echo=True,  # 把执行的 SQL 语句打印到终端
+    connect_args={"check_same_thread": False},
+)
+
+
+# 定义一个 SQLModel 模型，表示数据库中的 "todo" 表格结构
+class Todo(SQLModel, table=True):   #　table=True 表示这是一个数据库表格模型，表名默认为 "todo"
+    id: Optional[int] = SQLField(default=None, primary_key=True)    # id可以一开始为空，它是主键。
+    title: str
+    completed: bool = False
+
+# 根据定义的 SQLModel 表模型(class Todo)，在数据库里创建对应的数据表
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+# 生命周期函数，在 FastAPI 启动时自动调用
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()
+    yield   # yield 前面的代码：应用启动时执行。后面的代码：应用关闭时执行。
+
+
+
+app = FastAPI(title="FastAPI Todo API", lifespan= lifespan) # 把 lifespan 传给 FastAPI 实例，应用启动时自动调用 create_db_and_tables() 来创建数据库表格。
+
+
+""" todos = [
     {
         "id": 1,
         "title": "Learn FastAPI",
@@ -20,13 +54,13 @@ todos = [
 ]
 
 next_id = 3
-
+ """
 
 class TodoCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=100)
+    title: str = PydanticField(..., min_length=1, max_length=100)
 
 class TodoUpdate(BaseModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    title: Optional[str] = PydanticField(default=None, min_length=1, max_length=100)
     completed: Optional[bool] = None
 
 class TodoResponse(BaseModel):
@@ -35,12 +69,12 @@ class TodoResponse(BaseModel):
     completed: bool
 
 class EchoRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=200)
-    repeat: int = Field(1, ge=1, le=5)
+    message: str = PydanticField(..., min_length=1, max_length=200)
+    repeat: int = PydanticField(1, ge=1, le=5)
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=500)
+    message: str = PydanticField(..., min_length=1, max_length=500)
 
 
 @app.get("/")
@@ -85,55 +119,67 @@ def chat(request: ChatRequest):
 
 @app.get("/todos", response_model=list[TodoResponse])
 def list_todos():
-    return todos
+    with Session(engine) as session:
+        statement = select(Todo)
+        todos = session.exec(statement).all()
+        return todos
 
-@app.post("/todos", status_code=201, response_model=TodoResponse)    # 创建成功时，返回 201 Created
+
+@app.post("/todos", response_model=TodoResponse, status_code=201)
 def create_todo(todo: TodoCreate):
-    global next_id
+    db_todo = Todo(
+        title=todo.title,
+        completed=False,
+    )
 
-    new_todo = {
-        "id": next_id,
-        "title": todo.title,
-        "completed": False,
-    }
+    with Session(engine) as session:
+        session.add(db_todo)
+        session.commit()
+        session.refresh(db_todo)
+        return db_todo
 
-    todos.append(new_todo)
-    next_id += 1
-
-    return new_todo
 
 @app.get("/todos/{todo_id}", response_model=TodoResponse)
 def get_todo(todo_id: int):
-    for todo in todos:
-        if todo["id"] == todo_id:
-            return todo
+    with Session(engine) as session:
+        todo = session.get(Todo, todo_id)   # session.get() 方法根据主键（这里是 id）查询数据库中的 Todo 记录
 
-    raise HTTPException(status_code=404, detail="Todo not found")
+        if todo is None:
+            raise HTTPException(status_code=404, detail="Todo not found")
 
-'''
-TodoUpdate 是表格模板
-update 是根据用户提交的 JSON 填好的那张表
-update.completed 是这张表里 completed 那一栏的值
-'''
+        return todo
+
+
 @app.patch("/todos/{todo_id}", response_model=TodoResponse)
 def update_todo(todo_id: int, update: TodoUpdate):
-    for todo in todos:
-        if todo["id"] == todo_id:
-            if update.title is not None:
-                todo["title"] = update.title
+    with Session(engine) as session:
+        todo = session.get(Todo, todo_id)   
 
-            if update.completed is not None:
-                todo["completed"] = update.completed
+        if todo is None:
+            raise HTTPException(status_code=404, detail="Todo not found")
 
-            return todo
+        if update.title is not None:
+            todo.title = update.title
 
-    raise HTTPException(status_code=404, detail="Todo not found")
+        if update.completed is not None:
+            todo.completed = update.completed
 
-@app.delete("/todos/{todo_id}", status_code = 200) # 括号里是需要接收的输入 {}表示是一个变量
+        session.add(todo)
+        session.commit()
+        session.refresh(todo)
+
+        return todo
+
+
+@app.delete("/todos/{todo_id}", status_code=200)
 def delete_todo(todo_id: int):
-    for todo in todos:
-        if todo["id"] == todo_id:
-            todos.remove(todo)
-            return {"message": "Todo deleted"}
+    with Session(engine) as session:
+        todo = session.get(Todo, todo_id)
 
-    raise HTTPException(status_code=404, detail="Todo not found")
+        if todo is None:
+            raise HTTPException(status_code=404, detail="Todo not found")
+
+        session.delete(todo)
+        session.commit()
+
+        return {"message": "Todo deleted"}
