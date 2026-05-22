@@ -178,3 +178,25 @@ Response:
 - Add tests with pytest
 - Add Docker
 - Add real AI chat API
+
+## Run with Docker
+
+Build the Docker image:
+
+docker build -t fastapi-todo-api .
+
+Run the container:
+
+docker run -p 8000:8000 fastapi-todo-api
+
+Open API docs:
+
+http://127.0.0.1:8000/docs
+
+If port 8000 is already in use, run:
+
+docker run -p 8001:8000 fastapi-todo-api
+
+Then open:
+
+http://127.0.0.1:8001/docs
