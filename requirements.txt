@@ -4,3 +4,5 @@ pydantic
 sqlmodel
 openai
 python-dotenv
+pytest
+httpx
