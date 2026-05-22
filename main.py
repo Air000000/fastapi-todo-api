@@ -4,13 +4,16 @@ from pydantic import BaseModel, Field as PydanticField
 from typing import Optional
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel, Field as SQLField, Session, create_engine, select
-
+from pathlib import Path
 
 
 """ 
 连接 SQLite 数据库
 """
-sqlite_url = "sqlite:///todos.db"   # 在当前项目目录下创建或使用 todos.db 这个 SQLite 数据库文件
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(exist_ok=True)
+
+sqlite_url = "sqlite:///data/todos.db"  # 在当前项目目录下创建或使用 todos.db 这个 SQLite 数据库文件
 
 engine = create_engine(
     sqlite_url, # 连接哪个数据库

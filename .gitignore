@@ -222,3 +222,6 @@ todos.db
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Local database data
+data/

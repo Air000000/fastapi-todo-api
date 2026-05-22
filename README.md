@@ -183,11 +183,15 @@ Response:
 
 Build the Docker image:
 
+```bash
 docker build -t fastapi-todo-api .
+```
 
 Run the container:
 
+```bash
 docker run -p 8000:8000 fastapi-todo-api
+```
 
 Open API docs:
 
@@ -195,8 +199,49 @@ http://127.0.0.1:8000/docs
 
 If port 8000 is already in use, run:
 
+```bash
 docker run -p 8001:8000 fastapi-todo-api
+```
 
 Then open:
 
 http://127.0.0.1:8001/docs
+
+### Run with Docker and Persistent SQLite Data
+
+Create a local data directory:
+
+```bash
+mkdir data
+```
+
+Build the Docker image:
+
+```bash
+docker build -t fastapi-todo-api .
+```
+
+Run the container with a volume:
+
+```bash
+docker run -p 8001:8000 -v "${PWD}/data:/app/data" fastapi-todo-api
+```
+
+Open API docs:
+
+```text
+http://127.0.0.1:8001/docs
+```
+
+The SQLite database will be stored in:
+
+```text
+data/todos.db
+```
+
+Windows PowerShell 下如果 ${PWD} 不好用，就写：
+
+```powershell
+$projectPath = (Get-Location).Path
+docker run -p 8001:8000 -v "${projectPath}\data:/app/data" fastapi-todo-api
+```
