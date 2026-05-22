@@ -400,6 +400,10 @@ Response:
 - How to call an OpenAI-compatible LLM API
 - How to extract structured JSON from natural language
 - How to connect AI output with backend business logic
+- How to manage configuration with environment variables
+- How to add basic application logging
+- How to write API tests with pytest and TestClient
+- How to use a separate test database
 
 ## Next Steps
 
@@ -410,3 +414,36 @@ Response:
 - Add logging and configuration cleanup
 - Add a simple frontend
 - Deploy the API online
+
+## Run Tests
+
+Install test dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+Current test coverage includes:
+
+- Health check endpoint
+- Todo creation
+- Full Todo CRUD flow
+- Request validation for empty title
+
+The tests use a separate SQLite database:
+
+```text
+data/test_todos.db
+```
+
+This avoids polluting the local development database:
+
+```text
+data/todos.db
+```
