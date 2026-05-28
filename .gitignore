@@ -226,3 +226,4 @@ todos.db
 # Local database data
 data/
 *.db
+experiments/chroma_db/
