@@ -5,9 +5,11 @@ from pathlib import Path
 from typing import Iterable
 
 
+# v0.1 先只处理纯文本类文档；PDF/HTML 等格式后续再接解析器。
 SUPPORTED_SUFFIXES = {".md", ".txt"}
 
 
+# Document 是 RAG 管线的入口数据结构：后续 chunk、embedding、sources 都依赖这些元数据。
 @dataclass
 class Document:
     document_id: str
@@ -59,6 +61,7 @@ def load_documents(docs_dir: str | Path) -> list[Document]:
 
     documents: list[Document] = []
 
+    # rglob 支持递归读取子目录，便于以后把 docs 按主题/模块组织。
     for file_path in sorted(docs_path.rglob("*")):
         if not file_path.is_file():
             continue
@@ -68,6 +71,7 @@ def load_documents(docs_dir: str | Path) -> list[Document]:
 
         text = read_text_file(file_path).strip()
 
+        # 空文件不进入索引，否则后续会生成没有语义价值的 chunk。
         if not text:
             continue
 

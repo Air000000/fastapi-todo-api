@@ -60,6 +60,7 @@ def split_long_text_by_chars(
         if end >= len(text):
             break
 
+        # overlap 让相邻 chunk 保留部分上下文，降低边界语义被切断的风险。
         start = end - overlap
 
     return chunks
@@ -87,11 +88,13 @@ def split_text(
     if overlap >= chunk_size:
         raise ValueError("overlap must be smaller than chunk_size")
 
+    # 统一 Windows / Linux / macOS 换行符，避免分段逻辑在不同系统上表现不一致。
     normalized_text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
 
     if not normalized_text:
         return []
 
+    # 优先按空行切自然段；相比按单个换行切，更能保留段落级语义完整性。
     paragraphs = [
         paragraph.strip()
         for paragraph in normalized_text.split("\n\n")
@@ -99,10 +102,12 @@ def split_text(
     ]
 
     chunks: list[str] = []
+    # current_parts 是当前正在装箱的段落集合；装满后会合并成一个 chunk。
     current_parts: list[str] = []
     current_len = 0
 
     for paragraph in paragraphs:
+        # 段落本身已经超过 chunk_size 时，不能再靠段落合并解决，只能用字符窗口兜底切分。
         if len(paragraph) > chunk_size:
             if current_parts:
                 chunks.append("\n\n".join(current_parts).strip())
@@ -118,6 +123,7 @@ def split_text(
             )
             continue
 
+        # +2 是因为后续用 "\n\n" 拼接段落，两个换行符也会计入 chunk 长度。
         candidate_len = current_len + len(paragraph) + 2
 
         if current_parts and candidate_len > chunk_size:
@@ -128,6 +134,7 @@ def split_text(
             current_parts.append(paragraph)
             current_len = candidate_len
 
+    # 循环结束后，最后一个未装满的 chunk 也需要写入结果。
     if current_parts:
         chunks.append("\n\n".join(current_parts).strip())
 
