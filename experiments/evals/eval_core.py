@@ -35,3 +35,64 @@ def load_eval_cases(path: Path = EVAL_FILE) -> list[dict]:
         raise ValueError(f"No eval cases found in: {path}")
 
     return cases
+
+def evaluate_retriever(
+        retriever,
+        result_to_preview,
+        top_k: int = 3,
+    ) -> dict:
+    cases = load_eval_cases()   
+
+    hit_at_1 = 0
+    hit_at_k = 0
+    top1_miss_cases = []
+    failed_cases: list[dict] = []
+    
+
+    for case in cases:
+        question = case["question"]
+        expected_document_id = case["expected_document_id"]
+
+        results = retriever(query=question, top_k=top_k)
+
+        retrieved_document_ids = [result.document_id for result in results]
+
+        is_hit_1 = (
+            len(retrieved_document_ids) > 0 # 确保至少有一个结果
+            and retrieved_document_ids[0] == expected_document_id
+        )   
+        is_hit_k = expected_document_id in retrieved_document_ids
+
+        if is_hit_1:
+            hit_at_1 += 1
+
+        if is_hit_k:
+            hit_at_k += 1
+            
+        if not is_hit_1 and is_hit_k:
+            top1_miss_cases.append({
+                    "question": question,
+                    "expected_document_id": expected_document_id,
+                    "retrieved_document_ids": retrieved_document_ids,
+                    "top_results": [result_to_preview(result) for result in results],
+                }
+            )
+        elif not is_hit_k:
+            failed_cases.append(
+                {
+                    "question": question,
+                    "expected_document_id": expected_document_id,
+                    "retrieved_document_ids": retrieved_document_ids,
+                    "top_results": [result_to_preview(result) for result in results],
+                }
+            )   
+
+    total = len(cases)  
+
+    return {
+        "total": total,
+        "hit@1": hit_at_1 / total,
+        f"hit@{top_k}": hit_at_k / total,
+        "top1_miss_cases": top1_miss_cases,
+        "failed_cases": failed_cases,
+    }

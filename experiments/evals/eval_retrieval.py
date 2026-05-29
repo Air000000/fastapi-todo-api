@@ -5,7 +5,7 @@ from pathlib import Path
 
 from experiments.rag_local.query_index import SearchResult, search
 from experiments.evals.eval_core import load_eval_cases
-
+from experiments.evals import eval_core
 
 def result_to_preview(result: SearchResult) -> dict:
     '''
@@ -21,66 +21,13 @@ def result_to_preview(result: SearchResult) -> dict:
         "preview": result.content[:120].replace("\n", " "),
     }
 
-
-def evaluate(top_k: int = 3) -> dict:
-    '''
-    评测函数。
-    '''
-    cases = load_eval_cases()   
-
-    hit_at_1 = 0
-    hit_at_k = 0
-    top1_miss_cases = []
-    failed_cases: list[dict] = []
     
-
-    for case in cases:
-        question = case["question"]
-        expected_document_id = case["expected_document_id"]
-
-        results = search(query=question, top_k=top_k)
-
-        retrieved_document_ids = [result.document_id for result in results]
-
-        is_hit_1 = (
-            len(retrieved_document_ids) > 0 # 确保至少有一个结果
-            and retrieved_document_ids[0] == expected_document_id
-        )   
-        is_hit_k = expected_document_id in retrieved_document_ids
-
-        if is_hit_1:
-            hit_at_1 += 1
-
-        if is_hit_k:
-            hit_at_k += 1
-            
-        if not is_hit_1 and is_hit_k:
-            top1_miss_cases.append({
-                    "question": question,
-                    "expected_document_id": expected_document_id,
-                    "retrieved_document_ids": retrieved_document_ids,
-                    "top_results": [result_to_preview(result) for result in results],
-                }
-            )
-        elif not is_hit_k:
-            failed_cases.append(
-                {
-                    "question": question,
-                    "expected_document_id": expected_document_id,
-                    "retrieved_document_ids": retrieved_document_ids,
-                    "top_results": [result_to_preview(result) for result in results],
-                }
-            )   
-
-    total = len(cases)  
-
-    return {
-        "total": total,
-        "hit@1": hit_at_1 / total,
-        f"hit@{top_k}": hit_at_k / total,
-        "top1_miss_cases": top1_miss_cases,
-        "failed_cases": failed_cases,
-    }
+def evaluate(top_k: int = 3) -> dict:
+    return eval_core.evaluate_retriever(
+        retriever=search,
+        result_to_preview=result_to_preview,
+        top_k=top_k,
+    )
 
 
 def print_report(report: dict, top_k: int = 3) -> None:
