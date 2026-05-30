@@ -45,3 +45,37 @@ Both retrievers return the same top1 miss case: `embedding 在 RAG 中有什么�
 The expected document is `doc_embedding_notes`, but both retrievers rank `doc_rag_notes` first. This is reasonable because the question asks about embedding specifically inside the RAG pipeline, and `doc_rag_notes` also explains how embedding is used in RAG.
 
 This case is better treated as an ambiguous eval case rather than a clear retrieval failure.
+
+## Retrieval eval update - 15 cases
+
+Added 5 additional retrieval eval cases to reduce keyword/title leakage and test more natural user questions.
+
+Current results:
+
+### JSON Index
+
+- Total: 15
+- hit@1: 0.93
+- hit@3: 1.00
+- top1_miss_cases: 1
+- failed_cases: 0
+
+### Chroma
+
+- Total: 15
+- hit@1: 0.93
+- hit@3: 1.00
+- top1_miss_cases: 1
+- failed_cases: 0
+
+### Observation
+
+The only top1 miss is:
+
+- question: `embedding 在 RAG 中有什么作用？`
+- expected: `doc_embedding_notes`
+- top1 retrieved: `doc_rag_notes`
+- top2 retrieved: `doc_embedding_notes`
+
+This case is ambiguous because the question contains both `embedding` and `RAG`, and the RAG document also describes embedding as part of the retrieval pipeline.  
+It is better classified as a top1 ranking issue / ambiguous query rather than a complete retrieval failure.
