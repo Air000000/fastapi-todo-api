@@ -96,3 +96,56 @@ def evaluate_retriever(
         "top1_miss_cases": top1_miss_cases,
         "failed_cases": failed_cases,
     }
+
+def print_retrieval_report(
+    report: dict,
+    title: str,
+    top_k: int = 3,
+    metric_key: str = "score",
+) -> None:
+    print("=" * 80)
+    print(title)
+    print("=" * 80)
+    print(f"Total: {report['total']}")
+    print(f"hit@1: {report['hit@1']:.2f}")
+    print(f"hit@{top_k}: {report[f'hit@{top_k}']:.2f}")
+
+    print()
+    print(f"top1_miss_cases: {len(report['top1_miss_cases'])}")
+    for case in report["top1_miss_cases"]:
+        print("-" * 80)
+        print(f"question: {case['question']}")
+        print(f"expected_document_id: {case['expected_document_id']}")
+        print(f"retrieved_document_ids: {case['retrieved_document_ids']}")
+        print("top_results:")
+
+        for item in case["top_results"]:
+            print(
+                f"  - document_id={item['document_id']} | "
+                f"chunk_id={item['chunk_id']} | "
+                f"{metric_key}={item[metric_key]:.4f}"
+            )
+            print(f"    preview={item['preview']}")
+            
+    print()
+    print("Failed cases:")
+    failed_cases = report["failed_cases"]
+
+    if not failed_cases:
+        print("No failed cases.")
+        return
+
+    for case in failed_cases:
+        print("-" * 80)
+        print(f"question: {case['question']}")
+        print(f"expected_document_id: {case['expected_document_id']}")
+        print(f"retrieved_document_ids: {case['retrieved_document_ids']}")
+        print("top_results:")
+
+        for item in case["top_results"]:
+            print(
+                f"  - document_id={item['document_id']} | "
+                f"chunk_id={item['chunk_id']} | "
+                f"{metric_key}={item[metric_key]:.4f}"
+            )
+            print(f"    preview={item['preview']}")
