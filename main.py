@@ -16,7 +16,7 @@ import json
 import logging
 
 from experiments.rag_local.query_chroma import search_chroma
-
+from experiments.rag_local.query_rag_chroma import ask_rag
 load_dotenv()   # 从 .env 文件加载环境变量
 
 
@@ -180,6 +180,30 @@ class RagSearchResponse(BaseModel):
     top_k: int
     total_hits: int
     results: list[RagSearchResultResponse]
+
+class RagAskRequest(BaseModel): # 用户问问题时传进来的请求体
+    question: str = PydanticField(..., min_length=1)
+    top_k: int = PydanticField(default=3, ge=1, le=10)
+    max_distance: float = PydanticField(default=0.9, gt=0)
+
+
+class RagSourceResponse(BaseModel): # sources 里的单条引用来源
+    rank: int
+    document_id: str
+    chunk_id: str
+    title: str
+    source_path: str
+    chunk_index: int
+    distance: float
+    preview: str
+
+
+class RagAskResponse(BaseModel):    # 整个问答接口返回体
+    question: str
+    answer: str
+    retrieval_status: str
+    top_distance: Optional[float] = None
+    sources: list[RagSourceResponse]
 
 '''
 从 LLM 返回的文本中提取出 JSON 数据，进行清洗和解析
@@ -482,4 +506,47 @@ def rag_search(request: RagSearchRequest):
         top_k=request.top_k,
         total_hits=len(response_results),
         results=response_results,
+    )
+
+
+@app.post("/rag/ask", response_model=RagAskResponse)
+def rag_ask(request: RagAskRequest):
+    try:
+        rag_result = ask_rag(
+            question=request.question,
+            top_k=request.top_k,
+            max_distance=request.max_distance,
+        )   
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"RAG ask failed: {exc}",
+        ) from exc
+
+    source_responses = []   
+
+    for index, source in enumerate(rag_result.sources, start=1):
+        source_responses.append(
+            RagSourceResponse(
+                rank=index,
+                document_id=source.document_id,
+                chunk_id=source.chunk_id,
+                title=source.title,
+                source_path=source.source_path,
+                chunk_index=source.chunk_index,
+                distance=round(source.distance, 4),
+                preview=make_preview(source.preview),
+            )
+        )
+
+    return RagAskResponse(
+        question=request.question,
+        answer=rag_result.answer,
+        retrieval_status=rag_result.retrieval_status,
+        top_distance=(
+            round(rag_result.top_distance, 4)
+            if rag_result.top_distance is not None
+            else None
+        ),
+        sources=source_responses,
     )
