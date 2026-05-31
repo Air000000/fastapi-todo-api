@@ -190,22 +190,58 @@ Top2: doc_embedding_notes
 
 ---
 
-## 8. 下一步计划
+## RAG API v0.1
 
-短期下一步：
+当前 `learn-rag` 分支已经将本地 Chroma RAG pipeline 初步接入 FastAPI，提供了检索接口和问答接口。
 
-1. 增加更多 eval cases，从 10 条扩展到 20 条。
-2. 增加更容易混淆的问题，用于观察 retrieval failure。
-3. 继续完善 RAG answer，确保回答包含 sources。
-4. 之后再考虑接入 FastAPI API。
+### 接口列表
 
-暂时不做：
+#### POST `/rag/search`
 
-* PDF 解析
-* rerank
-* query rewrite
-* 复杂 LLM judge
-* Agent
-* 前端页面
+功能：调用 Chroma 向量库进行 top-k 检索，返回相关 chunk 及其来源信息。
 
-当前阶段优先保证：能运行、能评测、能讲清楚。
+请求示例：
+
+```json
+{
+  "query": "为什么系统能判断两段文字语义相近？",
+  "top_k": 3
+}
+```
+
+响应中包含：
+
+* `document_id`：来源文档 ID
+* `chunk_id`：命中的 chunk ID
+* `chunk_index`：chunk 在原文档中的顺序
+* `distance`：向量检索距离
+* `preview`：chunk 内容预览
+
+#### POST `/rag/ask`
+
+功能：执行完整 RAG 流程，包括 Chroma 检索、上下文构造、LLM 回答生成和 sources 返回。
+
+请求示例：
+
+```json
+{
+  "question": "RAG 为什么需要 chunk？",
+  "top_k": 3,
+  "max_distance": 0.9
+}
+```
+
+响应中包含：
+
+* `answer`：基于检索上下文生成的回答
+* `retrieval_status`：检索状态
+* `top_distance`：top1 检索结果的距离
+* `sources`：回答引用的来源 chunk 列表
+
+### 当前验证结果
+
+* `/rag/search` 已在 Swagger 中手动验证通过。
+* `/rag/ask` 已在 Swagger 中手动验证通过。
+* API 响应已包含来源 metadata 和清理后的 `preview`。
+* 当前 retrieval eval 数据集包含 15 条 case。
+* JSON Index 和 Chroma 当前结果均为 `hit@1 = 0.93`，`hit@3 = 1.00`。
