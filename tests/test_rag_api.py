@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 import main
-
+import routers.rag as rag_router
 
 client = TestClient(main.app)
 
@@ -23,7 +23,7 @@ def test_rag_search_returns_results(monkeypatch):
     def fake_search_chroma(query: str, top_k: int):
         return fake_results
 
-    monkeypatch.setattr(main, "search_chroma", fake_search_chroma)  
+    monkeypatch.setattr(rag_router, "search_chroma", fake_search_chroma)
 
     response = client.post(
         "/rag/search",
@@ -67,7 +67,7 @@ def test_rag_ask_returns_answer_and_sources(monkeypatch):
     def fake_ask_rag(question: str, top_k: int, max_distance: float):
         return fake_rag_result
 
-    monkeypatch.setattr(main, "ask_rag", fake_ask_rag)
+    monkeypatch.setattr(rag_router, "ask_rag", fake_ask_rag)
 
     response = client.post(
         "/rag/ask",
