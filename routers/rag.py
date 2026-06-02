@@ -1,36 +1,35 @@
 from fastapi import APIRouter, HTTPException
 
-from services.rag_service import answer_question, search_documents
 from schemas.rag import (
-    RagSearchRequest, 
+    RagSearchRequest,
     RagSearchResponse,
     RagSearchResultResponse,
     RagAskRequest,
     RagAskResponse,
     RagSourceResponse,
 )
+from services.rag_service import answer_question, search_documents
 
 
-router = APIRouter(prefix="/rag", tags=["RAG"]) # 创建一个 APIRouter 实例，设置前缀为 "/rag"，所有在这个 router 中定义的路由都会自动加上这个前缀。同时给这个 router 打上 "RAG" 标签，方便在 API 文档中分类显示。
+# 创建一个 APIRouter 实例，设置前缀为 "/rag"，
+# 所有在这个 router 中定义的路由都会自动加上这个前缀。
+# 同时给这个 router 打上 "RAG" 标签，方便在 API 文档中分类显示。
+router = APIRouter(prefix="/rag", tags=["RAG"]) 
 
 
 def make_preview(text: str, max_length: int = 200) -> str:
-    '''
-    对文本进行清洗和截断，生成预览文本
-    '''
+    """对文本进行清洗和截断，生成预览文本"""
     normalized = " ".join(text.split()) # 按任意空白切开，包括换行、多个空格
 
     if len(normalized) <= max_length:   # 用单个空格拼回去
-        return normalized   
+        return normalized
 
     return normalized[:max_length] + "..."  # 截断  
 
 
 @router.post("/search", response_model=RagSearchResponse)
 def rag_search(request: RagSearchRequest):
-    '''
-    根据用户的查询语句，搜索相关的文档片段
-    '''
+    """根据用户的查询语句，搜索相关的文档片段"""
     try:
         results = search_documents(
             query=request.query,
