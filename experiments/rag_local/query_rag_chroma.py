@@ -226,6 +226,8 @@ def ask_rag(
     question: str,
     top_k: int = 3,
     max_distance: float = 0.9,
+    tenant_id: str | None = None,
+    category: str | None = None,
 ) -> RagResponse:
     """
     完整 RAG 问答入口。
@@ -240,7 +242,7 @@ def ask_rag(
     if not question.strip():
         raise ValueError("question must not be empty")
 
-    results = search_chroma(query=question, top_k=top_k)
+    results = search_chroma(query=question, top_k=top_k, tenant_id=tenant_id, category=category)
     sources = build_sources(results)
 
     top_distance = results[0].distance if results else None
@@ -311,12 +313,22 @@ def main() -> None:
         default=0.9,
         help="Refuse answer if top distance is greater than this value.",
     )
+    parser.add_argument(
+        "--tenant-id",
+        help="Tenant ID to filter results.",
+    )
+    parser.add_argument(
+        "--category",
+        help="Category to filter results.",
+    )
     args = parser.parse_args()
 
     response = ask_rag(
         question=args.question,
         top_k=args.top_k,
         max_distance=args.max_distance,
+        tenant_id=args.tenant_id,
+        category=args.category
     )
     print_rag_response(response)
 
