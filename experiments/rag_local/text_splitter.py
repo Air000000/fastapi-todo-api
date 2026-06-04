@@ -116,8 +116,18 @@ def merge_small_chunks(
 
             continue
 
-        if is_small:    
-            continue
+        # if is_small:    
+        #     continue
+        
+        if is_small:
+            # 如果是第一个片段，且没有前文可合并，也没有下文可等待（因为不知道下文多长）
+            # 最安全的做法是先放入 pending，或者如果它极短，直接保留
+            if not merged:
+                 pending = chunk # 放入 pending，让下一次循环尝试与第二个片段合并
+                 continue
+            else:
+                 # 这里的逻辑其实已经被上面的 'is_small and merged' 覆盖了
+                 pass 
 
         merged.append(chunk)
 
