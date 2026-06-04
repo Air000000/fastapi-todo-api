@@ -1,55 +1,180 @@
-# AI Todo Assistant API
+# Enterprise Support AI Copilot
 
-A FastAPI backend project that combines a Todo CRUD API with an LLM-powered task extraction assistant.
+企业内部知识库与工单 AgentOps 后端系统。
 
-Users can create todos manually, or describe tasks in natural language and let the AI extract tasks, due times, and save them into the SQLite database.
+本项目最初由 FastAPI Todo / AI Todo API 演进而来，当前 `learn-rag` 分支正在逐步升级为面向企业内部支持场景的 AI Copilot 后端项目。现阶段核心工作是构建一套可评测、可追踪、可扩展的企业 RAG Core，为后续工单系统、Ticket Agent、人工确认、工具调用审计和 AgentOps 能力打基础。
 
-## Features
+当前版本定位：
 
-- FastAPI backend
-- Todo CRUD API
-- SQLite persistence with SQLModel
-- Request and response validation with Pydantic
-- HTTP status codes and error handling
-- Swagger UI API documentation
-- Docker support
-- Docker volume support for persistent SQLite data
-- Bailian / DashScope LLM integration
-- AI chat endpoint
-- Natural language task extraction
-- AI-generated todos with due time extraction
+```text
+Enterprise Support AI Copilot
+└── RAG Core v0.2
+    ├── 企业内部支持文档集
+    ├── 文档加载与切块
+    ├── embedding 批处理
+    ├── Chroma 向量库
+    ├── tenant/category metadata filter
+    ├── /rag/search
+    ├── /rag/ask
+    ├── answer + structured sources
+    └── API / service 自动化测试
+```
 
-## Tech Stack
+------
 
-- Python
-- FastAPI
-- Pydantic
-- SQLModel
-- SQLite
-- Uvicorn
-- Docker
-- OpenAI-compatible SDK
-- Alibaba Cloud Bailian / DashScope
+## 1. 项目定位
 
-## Project Structure
+本项目模拟企业内部支持场景。员工可以围绕 IT、HR、财务、行政、安全等内部制度和流程提出问题，系统基于企业知识库进行检索，并返回带来源依据的回答。
+
+后续项目会继续扩展到工单场景：当知识库无法充分解决问题时，系统生成工单预览，由用户确认后再创建工单，同时记录 Agent 执行过程、工具调用参数、审批状态和运行指标。
+
+目标链路如下：
+
+```text
+企业内部文档
+↓
+文档加载 / 上传
+↓
+文本切块
+↓
+embedding
+↓
+Chroma vector store
+↓
+tenant/category 过滤检索
+↓
+RAG answer with sources
+↓
+retrieval logs / latency / token metrics
+↓
+Ticket Agent preview
+↓
+human approval
+↓
+create ticket
+↓
+tool_calls / agent_runs audit
+```
+
+项目最终希望体现以下工程能力：
+
+| 能力         | 项目体现                                       |
+| ------------ | ---------------------------------------------- |
+| AI 应用后端  | FastAPI、service 分层、API schema、测试        |
+| RAG 工程化   | 文档加载、chunking、embedding、Chroma、sources |
+| 企业权限边界 | tenant/category metadata filter                |
+| 可评测性     | retrieval eval、hit@1、hit@3、failed cases     |
+| Agent 工作流 | Ticket Agent preview / confirm                 |
+| AgentOps     | tool_calls、agent_runs、approval_requests      |
+| 可维护性     | README、实验记录、测试、分阶段迭代             |
+
+------
+
+## 2. 当前阶段
+
+当前阶段：
+
+```text
+RAG Core v0.2
+```
+
+已完成能力：
+
+| 模块                | 当前状态                                          |
+| ------------------- | ------------------------------------------------- |
+| FastAPI 基础后端    | 已完成                                            |
+| Todo CRUD           | 已保留，作为早期基础后端能力                      |
+| AI Todo / LLM 调用  | 已保留，作为早期 LLM API 调用练习                 |
+| RAG API             | 已完成 `/rag/search`、`/rag/ask`                  |
+| 企业文档集          | 已完成 10 份企业内部支持文档                      |
+| 文档分类            | 已支持 `it`、`hr`、`finance`、`admin`、`security` |
+| 文档 metadata       | 已支持 `tenant_id`、`category`                    |
+| Chunk metadata      | 已支持 `tenant_id`、`category`                    |
+| Chunk 策略          | 已针对企业长文档调优                              |
+| Embedding           | 已支持分批请求                                    |
+| Vector store        | 使用 Chroma 持久化向量库                          |
+| Metadata filter     | 已支持 tenant/category 过滤                       |
+| API category filter | 已支持 request.category + mock tenant context     |
+| Sources             | RAG response 返回结构化来源信息                   |
+| 测试                | 当前 `14 passed`                                  |
+
+后续开发重点：
+
+| 模块                      | 状态   |
+| ------------------------- | ------ |
+| 企业 RAG eval v1          | 下一步 |
+| Retrieval logs            | 待开发 |
+| Token / latency metrics   | 待开发 |
+| Document upload API       | 待开发 |
+| Ticket CRUD               | 待开发 |
+| Ticket Agent              | 待开发 |
+| Human approval            | 待开发 |
+| Tool calls audit          | 待开发 |
+| Docker Compose 最终部署版 | 待整理 |
+
+------
+
+## 3. 技术栈
+
+| 类型                | 技术                                        |
+| ------------------- | ------------------------------------------- |
+| Web 框架            | FastAPI                                     |
+| 数据校验            | Pydantic                                    |
+| ORM / 数据库        | SQLModel + SQLite                           |
+| LLM / Embedding API | OpenAI-compatible SDK + DashScope / Bailian |
+| Vector store        | Chroma                                      |
+| 测试                | pytest + FastAPI TestClient                 |
+| 部署基础            | Docker                                      |
+| 语言                | Python                                      |
+
+------
+
+## 4. 当前项目结构
 
 ```text
 fastapi-todo-api/
-├── data/
-│   └── todos.db
-├── .dockerignore
-├── .env
-├── .env.example
-├── .gitignore
-├── Dockerfile
 ├── main.py
-├── README.md
-└── requirements.txt
+├── routers/
+│   └── rag.py
+├── schemas/
+│   └── rag.py
+├── services/
+│   └── rag_service.py
+├── experiments/
+│   ├── docs/
+│   │   ├── admin/
+│   │   ├── finance/
+│   │   ├── hr/
+│   │   ├── it/
+│   │   └── security/
+│   ├── index/
+│   ├── rag_local/
+│   │   ├── document_loader.py
+│   │   ├── text_splitter.py
+│   │   ├── build_rag_index.py
+│   │   ├── query_index.py
+│   │   ├── build_chroma_index.py
+│   │   ├── query_chroma.py
+│   │   └── query_rag_chroma.py
+│   ├── evals/
+│   └── README.md
+├── tests/
+│   ├── test_todos.py
+│   ├── test_rag_api.py
+│   └── test_rag_service.py
+├── data/
+├── Dockerfile
+├── requirements.txt
+├── .env.example
+├── .gitattributes
+└── README.md
 ```
 
-## Environment Variables
+------
 
-Create a `.env` file in the project root:
+## 5. 环境变量
+
+在项目根目录创建 `.env` 文件，并参考 `.env.example` 配置本地运行参数：
 
 ```env
 DASHSCOPE_API_KEY=your_dashscope_api_key_here
@@ -57,393 +182,284 @@ DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 DASHSCOPE_MODEL=qwen3.5-plus
 ```
 
-Do not commit `.env` to GitHub.
+------
 
-Use `.env.example` as the public template.
+## 6. 本地运行
 
-## Run Locally
-
-Install dependencies:
+安装依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Start the server:
+启动服务：
 
 ```bash
 uvicorn main:app --reload
 ```
 
-Open API docs:
+打开 Swagger 文档：
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## Run with Docker
+------
 
-Build the Docker image:
+## 7. 构建 Chroma 向量索引
+
+当前企业文档位于：
+
+```text
+experiments/docs/
+```
+
+构建 Chroma index：
 
 ```bash
-docker build -t fastapi-todo-api .
+python -m experiments.rag_local.build_chroma_index
 ```
 
-Run the container:
+当前企业文档集构建结果：
+
+```text
+Loaded documents: 10
+Generated chunks: 40
+Generated embeddings: 40
+Collection count: 40
+```
+
+------
+
+## 8. RAG 检索命令示例
+
+### IT 类问题
 
 ```bash
-docker run -p 8000:8000 fastapi-todo-api
+python -m experiments.rag_local.query_chroma "VPN 连不上应该先检查什么？" --top-k 3 --tenant-id tenant_demo --category it
 ```
 
-Open API docs:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-If port `8000` is already in use:
+### HR 类问题
 
 ```bash
-docker run -p 8001:8000 fastapi-todo-api
+python -m experiments.rag_local.query_chroma "请假需要在系统里提交吗？" --top-k 3 --tenant-id tenant_demo --category hr
 ```
 
-Then open:
-
-```text
-http://127.0.0.1:8001/docs
-```
-
-## Run with Docker and Persistent SQLite Data
-
-Create a local data directory:
+### 财务类问题
 
 ```bash
-mkdir data
+python -m experiments.rag_local.query_chroma "差旅报销需要哪些材料？" --top-k 3 --tenant-id tenant_demo --category finance
 ```
 
-Build the image:
+### 行政类问题
 
 ```bash
-docker build -t fastapi-todo-api .
+python -m experiments.rag_local.query_chroma "会议室临时不用需要释放吗？" --top-k 3 --tenant-id tenant_demo --category admin
 ```
 
-Run with a volume:
+### 安全类问题
 
 ```bash
-docker run -p 8001:8000 -v "${PWD}/data:/app/data" fastapi-todo-api
+python -m experiments.rag_local.query_chroma "外包人员可以共用账号吗？" --top-k 3 --tenant-id tenant_demo --category security
 ```
 
-For Windows PowerShell:
+------
 
-```powershell
-$projectPath = (Get-Location).Path
-docker run -p 8001:8000 -v "${projectPath}\data:/app/data" fastapi-todo-api
+## 9. RAG API
+
+### POST `/rag/search`
+
+功能：基于 Chroma 向量库执行 top-k 检索，支持 category filter。
+
+请求示例：
+
+```json
+{
+  "query": "VPN 连不上应该先检查什么？",
+  "top_k": 3,
+  "category": "it"
+}
 ```
 
-The SQLite database will be stored in:
+字段说明：
+
+| 字段       | 含义                                                         |
+| ---------- | ------------------------------------------------------------ |
+| `query`    | 用户问题                                                     |
+| `top_k`    | 返回的检索结果数量                                           |
+| `category` | 可选分类过滤，例如 `it`、`hr`、`finance`、`admin`、`security` |
+
+当前 API 层只暴露 `category` filter。`tenant_id` 暂时由系统内部 mock tenant context 提供：
 
 ```text
-data/todos.db
+tenant_demo
 ```
 
-## API Endpoints
+后续接入登录系统后，`tenant_id` 将从当前用户身份中获取。
 
-### Basic Endpoints
+响应字段：
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | Root endpoint |
-| GET | `/health` | Health check |
-| GET | `/about` | Project information |
-| POST | `/echo` | Echo test endpoint |
-| POST | `/chat` | Mock chat endpoint |
+| 字段          | 含义                 |
+| ------------- | -------------------- |
+| `document_id` | 来源文档 ID          |
+| `chunk_id`    | 命中的 chunk ID      |
+| `title`       | 文档标题             |
+| `source_path` | 文档路径             |
+| `chunk_index` | chunk 在文档中的顺序 |
+| `distance`    | 向量距离             |
+| `preview`     | chunk 内容预览       |
+| `tenant_id`   | 来源租户             |
+| `category`    | 来源分类             |
 
-### Todo Endpoints
+------
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/todos` | List all todos |
-| POST | `/todos` | Create a todo |
-| GET | `/todos/{todo_id}` | Get a todo by id |
-| PATCH | `/todos/{todo_id}` | Update a todo |
-| DELETE | `/todos/{todo_id}` | Delete a todo |
+### POST `/rag/ask`
 
-### AI Endpoints
+功能：执行完整 RAG 流程，包括 Chroma 检索、上下文构造、LLM 回答生成和 sources 返回。
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/ai/chat` | Chat with the LLM |
-| POST | `/ai/extract-tasks` | Extract todo tasks from natural language |
-| POST | `/ai/create-todos` | Extract tasks and save them into the database |
-
-## Todo API Examples
-
-### Create a Todo
-
-Request:
+请求示例：
 
 ```json
 {
-  "title": "Learn FastAPI",
-  "due_time": "Tomorrow morning"
+  "question": "VPN 连不上应该先检查什么？",
+  "top_k": 3,
+  "max_distance": 0.9,
+  "category": "it"
 }
 ```
 
-Response:
+响应字段：
 
-```json
-{
-  "id": 1,
-  "title": "Learn FastAPI",
-  "completed": false,
-  "due_time": "Tomorrow morning"
-}
-```
+| 字段               | 含义                      |
+| ------------------ | ------------------------- |
+| `answer`           | 基于检索上下文生成的回答  |
+| `retrieval_status` | 检索状态                  |
+| `top_distance`     | top1 检索结果距离         |
+| `sources`          | 回答引用的来源 chunk 列表 |
 
-### List Todos
-
-Request:
+当检索不到足够相关内容时，系统返回拒答：
 
 ```text
-GET /todos
+我在已提供资料中没有找到足够依据。
 ```
 
-Response:
+------
 
-```json
-[
-  {
-    "id": 1,
-    "title": "Learn FastAPI",
-    "completed": false,
-    "due_time": "Tomorrow morning"
-  }
-]
-```
-
-### Update a Todo
-
-Request:
-
-```json
-{
-  "title": "Review FastAPI",
-  "completed": true,
-  "due_time": "Tonight"
-}
-```
-
-Response:
-
-```json
-{
-  "id": 1,
-  "title": "Review FastAPI",
-  "completed": true,
-  "due_time": "Tonight"
-}
-```
-
-### Delete a Todo
-
-Request:
+## 10. 当前 API 分层
 
 ```text
-DELETE /todos/1
+POST /rag/search
+→ routers/rag.py::rag_search()
+→ services/rag_service.py::search_documents()
+→ experiments/rag_local/query_chroma.py::search_chroma()
+
+POST /rag/ask
+→ routers/rag.py::rag_ask()
+→ services/rag_service.py::answer_question()
+→ experiments/rag_local/query_rag_chroma.py::ask_rag()
 ```
 
-Response:
+各层职责：
 
-```json
-{
-  "message": "Todo deleted"
-}
-```
+| 层                        | 职责                                            |
+| ------------------------- | ----------------------------------------------- |
+| `routers/rag.py`          | 处理 HTTP 请求、调用 service、组装 API response |
+| `schemas/rag.py`          | 定义 request / response schema                  |
+| `services/rag_service.py` | 提供 RAG 业务入口                               |
+| `experiments/rag_local/`  | 执行底层 RAG、Chroma、embedding、LLM 逻辑       |
+| `tests/`                  | 验证 API 层和 service 层行为                    |
 
-## AI API Examples
+------
 
-### AI Chat
+## 11. 测试
 
-Endpoint:
-
-```text
-POST /ai/chat
-```
-
-Request:
-
-```json
-{
-  "message": "用一句话鼓励我继续学习 FastAPI"
-}
-```
-
-Response:
-
-```json
-{
-  "user_message": "用一句话鼓励我继续学习 FastAPI",
-  "assistant_message": "继续加油，掌握 FastAPI 会让你具备构建现代 Web 服务的核心能力。",
-  "model": "qwen3.5-plus"
-}
-```
-
-### Extract Tasks from Natural Language
-
-Endpoint:
-
-```text
-POST /ai/extract-tasks
-```
-
-Request:
-
-```json
-{
-  "text": "明天上午九点学习 FastAPI，下午三点写 Docker 总结，晚上复习 SQLModel"
-}
-```
-
-Response:
-
-```json
-{
-  "tasks": [
-    {
-      "title": "学习 FastAPI",
-      "time": "明天上午九点"
-    },
-    {
-      "title": "写 Docker 总结",
-      "time": "明天下午三点"
-    },
-    {
-      "title": "复习 SQLModel",
-      "time": "明天晚上"
-    }
-  ]
-}
-```
-
-### Create Todos with AI
-
-Endpoint:
-
-```text
-POST /ai/create-todos
-```
-
-Request:
-
-```json
-{
-  "text": "明天上午九点学习 FastAPI，下午三点写 Docker 总结，晚上复习 SQLModel"
-}
-```
-
-Response:
-
-```json
-{
-  "extracted_tasks": [
-    {
-      "title": "学习 FastAPI",
-      "time": "明天上午九点"
-    },
-    {
-      "title": "写 Docker 总结",
-      "time": "明天下午三点"
-    },
-    {
-      "title": "复习 SQLModel",
-      "time": "明天晚上"
-    }
-  ],
-  "created_todos": [
-    {
-      "id": 1,
-      "title": "学习 FastAPI",
-      "completed": false,
-      "due_time": "明天上午九点"
-    },
-    {
-      "id": 2,
-      "title": "写 Docker 总结",
-      "completed": false,
-      "due_time": "明天下午三点"
-    },
-    {
-      "id": 3,
-      "title": "复习 SQLModel",
-      "completed": false,
-      "due_time": "明天晚上"
-    }
-  ]
-}
-```
-
-## Current Version
-
-`v0.9` - AI Todo Assistant backend with Docker, SQLite persistence, and LLM-powered task creation.
-
-## What I Learned
-
-- How to build a FastAPI backend
-- How to design RESTful CRUD endpoints
-- How to use Pydantic request and response models
-- How to use path parameters and request bodies
-- How to handle HTTP errors
-- How to use SQLModel with SQLite
-- How to persist data with a database
-- How to Dockerize a FastAPI project
-- How to use Docker volumes for persistent data
-- How to call an OpenAI-compatible LLM API
-- How to extract structured JSON from natural language
-- How to connect AI output with backend business logic
-- How to manage configuration with environment variables
-- How to add basic application logging
-- How to write API tests with pytest and TestClient
-- How to use a separate test database
-
-## Next Steps
-
-- Add filtering by completed status
-- Add filtering by due time
-- Add better time parsing
-- Add tests with pytest
-- Add logging and configuration cleanup
-- Add a simple frontend
-- Deploy the API online
-
-## Run Tests
-
-Install test dependencies:
+运行测试：
 
 ```bash
-pip install -r requirements.txt
+pytest tests/test_rag_api.py tests/test_rag_service.py tests/test_todos.py
 ```
 
-Run tests:
-
-```bash
-pytest
-```
-
-Current test coverage includes:
-
-- Health check endpoint
-- Todo creation
-- Full Todo CRUD flow
-- Request validation for empty title
-
-The tests use a separate SQLite database:
+当前结果：
 
 ```text
-data/test_todos.db
+14 passed, 1 warning
 ```
 
-This avoids polluting the local development database:
+测试覆盖：
+
+| 文件                        | 覆盖内容                                              |
+| --------------------------- | ----------------------------------------------------- |
+| `tests/test_todos.py`       | Todo 基础 CRUD 和请求校验                             |
+| `tests/test_rag_api.py`     | RAG API happy path、422 validation、500 service error |
+| `tests/test_rag_service.py` | service 层是否正确调用底层 search / ask 函数          |
+
+RAG 测试使用 `monkeypatch` 隔离真实 Chroma、embedding 和 LLM 调用，因此不会消耗 token。
+
+------
+
+## 12. 当前版本记录
+
+| Version                         | Documents | Categories                           | Chunks | Vector Store  | Eval             |
+| ------------------------------- | --------- | ------------------------------------ | ------ | ------------- | ---------------- |
+| RAG v0.1 learning-doc baseline  | 5         | general                              | 5      | JSON / Chroma | 15 条旧 eval     |
+| RAG Core v0.2 enterprise corpus | 10        | it / hr / finance / admin / security | 40     | Chroma        | 企业 eval 待开发 |
+
+旧 learning-doc baseline 的 eval 结果：
+
+| Retriever         | hit@1 | hit@3 | top1 miss cases | failed cases |
+| ----------------- | ----- | ----- | --------------- | ------------ |
+| JSON cosine index | 0.93  | 1.00  | 1               | 0            |
+| Chroma            | 0.93  | 1.00  | 1               | 0            |
+
+旧 eval 基于 FastAPI、Docker、Embedding、RAG、SQLModel 学习文档，主要用于记录早期 RAG 学习阶段的 baseline。当前企业文档集会使用新的 enterprise RAG eval 进行评测。
+
+------
+
+## 13. 下一步计划
+
+短期下一步：
 
 ```text
-data/todos.db
+企业 RAG eval v1
 ```
+
+计划包括：
+
+```text
+1. 新增 enterprise_rag_cases.jsonl
+2. 设计 30 条企业支持问题
+3. 每条 case 包含 question、expected_document_id、category
+4. eval runner 支持 category filter
+5. 输出 hit@1、hit@3、top1_miss_cases、failed_cases
+6. 分析成功案例和失败案例
+```
+
+中期计划：
+
+```text
+1. retrieval logs
+2. latency / token metrics
+3. documents / chunks 后端化
+4. Ticket CRUD
+5. Ticket Agent preview / confirm
+6. tool_calls / agent_runs audit
+7. human approval
+```
+
+最终目标：
+
+```text
+企业内部知识库 RAG
++
+受控 Ticket Agent
++
+AgentOps 审计与评测
+```
+
+------
+
+## 14. 项目说明
+
+仓库名保留为 `fastapi-todo-api`，因为项目最初从 FastAPI Todo API 开始演进。当前 `learn-rag` 分支是 `Enterprise Support AI Copilot` 的开发分支。
+
+后续完成企业 RAG eval、Ticket Agent 和项目文档整理后，再考虑将主项目合并到 `main` 分支或切换默认分支。
