@@ -21,6 +21,8 @@ def test_agent_ticket_preview_returns_draft(monkeypatch):
         calls["tenant_id"] = tenant_id
 
         return TicketAgentPreviewResponse(
+            agent_run_id=1,
+            approval_request_id=10,
             should_create_ticket=True,
             reason="用户描述包含故障信号，建议创建工单。",
             draft=TicketDraft(
@@ -66,6 +68,8 @@ def test_agent_ticket_preview_returns_draft(monkeypatch):
     assert data["draft"]["priority"] == "high"
     assert data["sources"][0]["document_id"] == "doc_vpn_guide"
     assert data["sources"][0]["category"] == "it"
+    assert data["agent_run_id"] == 1
+    assert data["approval_request_id"] == 10
 
     assert calls["message"] == "VPN 连不上，重启客户端也没用"
     assert calls["category"] == "it"
@@ -75,6 +79,8 @@ def test_agent_ticket_preview_returns_draft(monkeypatch):
 def test_agent_ticket_preview_can_return_no_ticket(monkeypatch):
     def fake_preview_ticket_service(request, tenant_id: str):
         return TicketAgentPreviewResponse(
+            agent_run_id=2,
+            approval_request_id=None,
             should_create_ticket=False,
             reason="知识库中已检索到相关资料，暂不建议创建工单。",
             draft=None,
@@ -111,6 +117,8 @@ def test_agent_ticket_preview_can_return_no_ticket(monkeypatch):
     assert data["should_create_ticket"] is False
     assert data["draft"] is None
     assert data["sources"][0]["document_id"] == "doc_leave_policy"
+    assert data["agent_run_id"] == 2
+    assert data["approval_request_id"] is None
 
 
 def test_agent_ticket_confirm_creates_ticket(monkeypatch):
@@ -121,8 +129,13 @@ def test_agent_ticket_confirm_creates_ticket(monkeypatch):
         calls["draft_category"] = request.draft.category
         calls["tenant_id"] = tenant_id
         calls["created_by"] = created_by
+        calls["agent_run_id"] = request.agent_run_id
+        calls["approval_request_id"] = request.approval_request_id
 
         return TicketAgentConfirmResponse(
+            agent_run_id=request.agent_run_id,
+            approval_request_id=request.approval_request_id,
+            tool_call_id=100,
             ticket=TicketResponse(
                 id=1,
                 tenant_id=tenant_id,
@@ -134,7 +147,7 @@ def test_agent_ticket_confirm_creates_ticket(monkeypatch):
                 status="open",
                 created_at=datetime(2026, 1, 1, 10, 0, 0),
                 updated_at=datetime(2026, 1, 1, 10, 0, 0),
-            )
+            ),
         )
 
     monkeypatch.setattr(
@@ -146,15 +159,16 @@ def test_agent_ticket_confirm_creates_ticket(monkeypatch):
         response = client.post(
             "/agent/ticket/confirm",
             json={
+                "agent_run_id": 1,
+                "approval_request_id": 10,
                 "draft": {
                     "title": "VPN 连不上",
                     "description": "用户远程办公时 VPN 连不上，重启客户端后仍未恢复。",
                     "category": "it",
                     "priority": "high",
-                }
+                },
             },
         )
-
     assert response.status_code == 201
 
     data = response.json()
@@ -165,12 +179,16 @@ def test_agent_ticket_confirm_creates_ticket(monkeypatch):
     assert data["ticket"]["category"] == "it"
     assert data["ticket"]["priority"] == "high"
     assert data["ticket"]["status"] == "open"
+    assert data["agent_run_id"] == 1
+    assert data["approval_request_id"] == 10
+    assert data["tool_call_id"] == 100
 
     assert calls["draft_title"] == "VPN 连不上"
     assert calls["draft_category"] == "it"
     assert calls["tenant_id"] == "tenant_demo"
     assert calls["created_by"] == "user_demo"
-
+    assert calls["agent_run_id"] == 1
+    assert calls["approval_request_id"] == 10
 
 def test_agent_ticket_preview_with_empty_message_should_fail():
     with TestClient(app) as client:
