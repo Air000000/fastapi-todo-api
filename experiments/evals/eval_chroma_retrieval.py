@@ -27,6 +27,7 @@ def evaluate(top_k: int = 3) -> dict:
         retriever=search_chroma,
         result_to_preview=result_to_preview,
         top_k=top_k,
+        eval_file=eval_core.ENTERPRISE_EVAL_FILE,
     )
 
 

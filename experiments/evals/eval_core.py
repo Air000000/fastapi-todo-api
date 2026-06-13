@@ -2,8 +2,10 @@ from pathlib import Path
 import json
 
 
-EVAL_FILE = Path("experiments/evals/eval_questions.jsonl") # 评测问题列表，每行一个 JSON 对象，包含 question 和 expected_document_id
+LEARNING_EVAL_FILE = Path("experiments/evals/eval_learning_questions.jsonl")
+ENTERPRISE_EVAL_FILE = Path("experiments/evals/eval_enterprise_questions.jsonl")
 
+EVAL_FILE = LEARNING_EVAL_FILE
 
 def load_eval_cases(path: Path = EVAL_FILE) -> list[dict]:
     '''
@@ -40,8 +42,9 @@ def evaluate_retriever(
         retriever,
         result_to_preview,
         top_k: int = 3,
+        eval_file: Path = EVAL_FILE,
     ) -> dict:
-    cases = load_eval_cases()   
+    cases = load_eval_cases(eval_file)
 
     hit_at_1 = 0
     hit_at_k = 0

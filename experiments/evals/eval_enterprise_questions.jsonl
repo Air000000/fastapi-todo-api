@@ -1,0 +1,10 @@
+{"question":"VPN 连接失败应该先检查什么？","expected_document_id":"doc_vpn_guide","tenant_id":"tenant_demo","category":"it"}
+{"question":"邮箱收不到邮件应该如何排查？","expected_document_id":"doc_email_login_faq","tenant_id":"tenant_demo","category":"it"}
+{"question":"请假流程需要注意什么？","expected_document_id":"doc_leave_policy","tenant_id":"tenant_demo","category":"hr"}
+{"question":"新员工入职前 30 天应该完成哪些事项？","expected_document_id":"doc_onboarding_process","tenant_id":"tenant_demo","category":"hr"}
+{"question":"差旅报销需要哪些材料？","expected_document_id":"doc_travel_reimbursement","tenant_id":"tenant_demo","category":"finance"}
+{"question":"发票报销有哪些要求？","expected_document_id":"doc_invoice_rules","tenant_id":"tenant_demo","category":"finance"}
+{"question":"会议室预约冲突时应该怎么处理？","expected_document_id":"doc_meeting_room","tenant_id":"tenant_demo","category":"admin"}
+{"question":"设备借用后丢失或损坏怎么办？","expected_document_id":"doc_device_borrowing","tenant_id":"tenant_demo","category":"admin"}
+{"question":"跨部门共享数据前应该确认什么？","expected_document_id":"doc_data_access_policy","tenant_id":"tenant_demo","category":"security"}
+{"question":"外包账号是否可以访问生产系统？","expected_document_id":"doc_outsource_account","tenant_id":"tenant_demo","category":"security"}

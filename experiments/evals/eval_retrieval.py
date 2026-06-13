@@ -23,6 +23,7 @@ def evaluate(top_k: int = 3) -> dict:
         retriever=search,
         result_to_preview=result_to_preview,
         top_k=top_k,
+        eval_file=eval_core.LEARNING_EVAL_FILE,
     )
 
 
