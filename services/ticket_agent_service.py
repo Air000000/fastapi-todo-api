@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import cast
 import json
 
+from fastapi import HTTPException
 from experiments.rag_local.query_chroma import search_chroma
 from schemas.agent_ticket import (
     TicketAgentConfirmRequest,
@@ -25,11 +26,11 @@ from services.agent_ops_service import (
     create_agent_run,
     create_approval_request,
     create_tool_call,
+    get_approval_request,
     update_agent_run,
     update_approval_request,
     update_tool_call,
 )
-
 
 
 SEARCHABLE_CATEGORIES = {
@@ -336,6 +337,17 @@ def confirm_ticket(
     tenant_id: str,
     created_by: str,
 ) -> TicketAgentConfirmResponse:
+    approval_request = get_approval_request(
+        approval_request_id=request.approval_request_id,
+        tenant_id=tenant_id,
+    )
+
+    if approval_request.agent_run_id != request.agent_run_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Approval request does not belong to agent run",
+        )
+
     update_approval_request(
         approval_request_id=request.approval_request_id,
         tenant_id=tenant_id,

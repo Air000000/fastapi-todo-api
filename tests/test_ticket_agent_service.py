@@ -1,5 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
+import pytest
+from fastapi import HTTPException
 
 from schemas.agent_ticket import (
     TicketAgentConfirmRequest,
@@ -214,6 +216,16 @@ def test_confirm_ticket_calls_create_ticket_service(monkeypatch):
     """
     calls = {}
 
+    def fake_get_approval_request(approval_request_id, tenant_id):
+        calls["get_approval_request_id"] = approval_request_id
+        calls["get_approval_tenant_id"] = tenant_id
+        return SimpleNamespace(
+            id=approval_request_id,
+            agent_run_id=1,
+            tenant_id=tenant_id,
+            status="pending",
+        )
+
     def fake_update_approval_request(approval_request_id, tenant_id, approval_request_update):
         calls["approval_request_id"] = approval_request_id
         calls["approval_tenant_id"] = tenant_id
@@ -284,7 +296,11 @@ def test_confirm_ticket_calls_create_ticket_service(monkeypatch):
             created_at=datetime(2026, 1, 1, 10, 0, 0),
             updated_at=datetime(2026, 1, 1, 10, 0, 0),
         )
-
+    
+    monkeypatch.setattr(
+        "services.ticket_agent_service.get_approval_request",
+        fake_get_approval_request,
+    )
     monkeypatch.setattr(
         "services.ticket_agent_service.update_approval_request",
         fake_update_approval_request,
@@ -332,6 +348,8 @@ def test_confirm_ticket_calls_create_ticket_service(monkeypatch):
     assert response.ticket.priority == "high"
     assert response.ticket.status == "open"
 
+    assert calls["get_approval_request_id"] == 10
+    assert calls["get_approval_tenant_id"] == "tenant_demo"
     assert calls["approval_request_id"] == 10
     assert calls["approval_status"] == "approved"
     assert calls["approved_by"] == "user_demo"
@@ -350,3 +368,67 @@ def test_confirm_ticket_calls_create_ticket_service(monkeypatch):
     assert calls["priority"] == "high"
     assert calls["tenant_id"] == "tenant_demo"
     assert calls["created_by"] == "user_demo"
+
+def test_confirm_ticket_rejects_mismatched_approval_request(monkeypatch):
+    calls = {}
+
+    def fake_get_approval_request(approval_request_id, tenant_id):
+        calls["get_approval_request_id"] = approval_request_id
+        calls["get_approval_tenant_id"] = tenant_id
+        return SimpleNamespace(
+            id=approval_request_id,
+            agent_run_id=999,
+            tenant_id=tenant_id,
+            status="pending",
+        )
+
+    def fake_update_approval_request(*args, **kwargs):
+        calls["update_approval_request_called"] = True
+
+    def fake_create_tool_call(*args, **kwargs):
+        calls["create_tool_call_called"] = True
+
+    def fake_create_ticket_service(*args, **kwargs):
+        calls["create_ticket_service_called"] = True
+
+    monkeypatch.setattr(
+        "services.ticket_agent_service.get_approval_request",
+        fake_get_approval_request,
+    )
+    monkeypatch.setattr(
+        "services.ticket_agent_service.update_approval_request",
+        fake_update_approval_request,
+    )
+    monkeypatch.setattr(
+        "services.ticket_agent_service.create_tool_call",
+        fake_create_tool_call,
+    )
+    monkeypatch.setattr(
+        "services.ticket_agent_service.create_ticket_service",
+        fake_create_ticket_service,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        confirm_ticket(
+            request=TicketAgentConfirmRequest(
+                agent_run_id=1,
+                approval_request_id=10,
+                draft=TicketDraft(
+                    title="VPN 连不上",
+                    description="用户远程办公时 VPN 连不上。",
+                    category="it",
+                    priority="high",
+                ),
+            ),
+            tenant_id="tenant_demo",
+            created_by="user_demo",
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Approval request does not belong to agent run"
+
+    assert calls["get_approval_request_id"] == 10
+    assert calls["get_approval_tenant_id"] == "tenant_demo"
+    assert "update_approval_request_called" not in calls
+    assert "create_tool_call_called" not in calls
+    assert "create_ticket_service_called" not in calls
