@@ -52,9 +52,11 @@ pytest tests/test_rag_service.py
 ```bash
 pytest tests/test_tickets.py
 pytest tests/test_agent_ops_service.py
+pytest tests/test_agent_ops_api.py
 pytest tests/test_ticket_agent_service.py
 pytest tests/test_agent_ticket_api.py
 ```
+
 
 ### Todo legacy tests
 
@@ -87,18 +89,18 @@ hit@3: 1.00
 mrr@3: 0.98
 ```
 
-### Test baseline
-
 ```text
-tests/test_query_chroma.py        4 passed
-tests/test_rag_api.py             8 passed
-tests/test_rag_service.py         2 passed
-tests/test_todos.py               4 passed
-tests/test_tickets.py             9 passed
-tests/test_agent_ops_service.py   9 passed
+tests/test_query_chroma.py         4 passed
+tests/test_rag_api.py              8 passed
+tests/test_rag_service.py          2 passed
+tests/test_todos.py                4 passed
+tests/test_tickets.py              9 passed
+tests/test_agent_ops_service.py    9 passed
+tests/test_agent_ops_api.py        4 passed
 tests/test_ticket_agent_service.py 9 passed
-tests/test_agent_ticket_api.py    6 passed
+tests/test_agent_ticket_api.py     6 passed
 ```
+
 
 ## Current Architecture Notes
 
@@ -122,6 +124,8 @@ ToolCall
 Ticket creation
 ↓
 AgentOps status update
+↓
+AgentOps read APIs
 ```
 
 The current system uses mock tenant and user context:

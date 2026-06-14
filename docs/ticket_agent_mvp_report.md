@@ -68,16 +68,27 @@ mock tenant/user context
 API 层测试
 Service 层测试
 AgentOps service 测试
+AgentOps read API
+GET /agent-ops/runs
+GET /agent-ops/runs/{agent_run_id}
+GET /agent-ops/runs/{agent_run_id}/tool-calls
+GET /agent-ops/runs/{agent_run_id}/approval-requests
+AgentOps API 测试
 ```
 
 ---
 
 ## 3. 核心 API
 
-| Method | Path                    | 作用                |
-| ------ | ----------------------- | ----------------- |
-| POST   | `/agent/ticket/preview` | 根据用户问题生成工单草稿和审批请求 |
-| POST   | `/agent/ticket/confirm` | 用户确认后创建真实工单       |
+| Method | Path                                               | 作用                         |
+| ------ | -------------------------------------------------- | -------------------------- |
+| POST   | `/agent/ticket/preview`                            | 根据用户问题生成工单草稿和审批请求          |
+| POST   | `/agent/ticket/confirm`                            | 用户确认后创建真实工单                |
+| GET    | `/agent-ops/runs`                                  | 查询当前 tenant 下的 AgentRun 列表 |
+| GET    | `/agent-ops/runs/{agent_run_id}`                   | 查询单次 AgentRun 详情           |
+| GET    | `/agent-ops/runs/{agent_run_id}/tool-calls`        | 查询单次 AgentRun 下的工具调用记录     |
+| GET    | `/agent-ops/runs/{agent_run_id}/approval-requests` | 查询单次 AgentRun 下的审批请求记录     |
+
 
 ---
 
@@ -231,7 +242,41 @@ finished_at
 
 ---
 
-## 7. 规则型 Agent 设计
+## 7. AgentOps 查询 API
+
+当前已经新增 AgentOps 只读查询 API，用于查看 Ticket Agent 的执行轨迹。
+
+第一版只提供 read API，不提供 create / update API。AgentOps 记录由 workflow 自动写入，查询 API 只负责读取。
+
+当前支持：
+
+```text
+GET /agent-ops/runs
+GET /agent-ops/runs/{agent_run_id}
+GET /agent-ops/runs/{agent_run_id}/tool-calls
+GET /agent-ops/runs/{agent_run_id}/approval-requests
+```
+查询能力：
+
+1. 查询 agent run 列表，可按 status / agent_name 过滤。
+2. 查询单次 agent run 详情。
+3. 查询单次 agent run 关联的 tool_calls。
+4. 查询单次 agent run 关联的 approval_requests。
+
+设计原则：
+
+Agent workflow 负责写入 AgentOps records。
+AgentOps read API 负责查看执行轨迹。
+外部调用方不能直接伪造 AgentOps 写入记录。
+
+当前仍使用 mock tenant context：
+
+tenant_id = tenant_demo
+
+后续接入真实认证后，应从 current user / current tenant 中解析 tenant_id。
+
+
+## 8. 规则型 Agent 设计
 
 当前第一版使用规则判断是否建议创建工单。
 
@@ -297,9 +342,9 @@ finished_at
 
 ---
 
-## 8. 已发现并修复的问题
+## 9. 已发现并修复的问题
 
-### 8.1 子串误判问题
+### 9.1 子串误判问题
 
 原始规则中，`客户` 会误命中 `客户端`：
 
@@ -317,7 +362,7 @@ finished_at
 增加 service 测试防止回归
 ```
 
-### 8.2 咨询问题误判问题
+### 9.2 咨询问题误判问题
 
 `请问请假怎么申请？` 原先可能因为包含 `申请` 被判定为需要创建工单。
 
@@ -329,7 +374,7 @@ finished_at
 增加知识咨询测试用例
 ```
 
-### 8.3 approval_request 与 agent_run 错配问题
+### 9.3 approval_request 与 agent_run 错配问题
 
 Confirm 阶段现在会校验：
 
@@ -347,7 +392,7 @@ approval_request.agent_run_id == request.agent_run_id
 
 ---
 
-## 9. 测试覆盖
+## 10. 测试覆盖
 
 当前测试覆盖：
 
@@ -361,12 +406,14 @@ approval_request.agent_run_id == request.agent_run_id
 | `tests/test_rag_service.py`          | RAG service                                   |
 | `tests/test_query_chroma.py`         | Chroma metadata filter                        |
 | `tests/test_todos.py`                | Todo CRUD                                     |
+| `tests/test_agent_ops_api.py` | AgentOps read API request / response / tenant context|
 
 当前 Ticket / AgentOps 相关测试：
 
 ```powershell
 pytest tests/test_tickets.py
 pytest tests/test_agent_ops_service.py
+pytest tests/test_agent_ops_api.py
 pytest tests/test_ticket_agent_service.py
 pytest tests/test_agent_ticket_api.py
 ```
@@ -376,13 +423,14 @@ pytest tests/test_agent_ticket_api.py
 ```text
 tests/test_tickets.py              9 passed
 tests/test_agent_ops_service.py    9 passed
+tests/test_agent_ops_api.py        4 passed
 tests/test_ticket_agent_service.py 9 passed
 tests/test_agent_ticket_api.py     6 passed
 ```
 
 ---
 
-## 10. 当前局限
+## 11. 当前局限
 
 当前 Ticket Agent MVP 仍是规则型 workflow，暂未引入复杂 LLM planner。
 
@@ -393,7 +441,7 @@ tests/test_agent_ticket_api.py     6 passed
 2. 没有复杂多轮确认。
 3. 没有真实权限系统，只使用 mock tenant/user。
 4. 没有 agent run latency、token usage、retrieval distance 聚合指标。
-5. 没有独立的 AgentOps 查询 API。
+5. AgentOps 目前只有只读查询 API，尚未提供 dashboard 或聚合统计。
 6. 没有真实前端确认界面。
 7. 当前 confirm 只支持 approved 流程，尚未实现 rejected / cancelled API。
 8. 当前 agent 规则依赖关键词，仍可能出现边界误判。
@@ -401,12 +449,12 @@ tests/test_agent_ticket_api.py     6 passed
 
 ---
 
-## 11. 下一步
+## 12. 下一步
 
 建议进入 Ticket Agent v1 cleanup：
 
 ```text
-1. 增加 AgentOps 查询 API。
+1. 增加 rejected / cancelled approval flow。
 2. 增加 rejected / cancelled approval flow。
 3. 在 AgentRun 中记录 latency 和 retrieval summary。
 4. 在 ToolCall 中记录更完整的错误类型。
