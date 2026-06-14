@@ -25,10 +25,10 @@ def test_rag_search_returns_results(monkeypatch):
     calls = {}
 
     def fake_search_documents(
-        query: str, 
-        top_k: int,
-        tenant_id: str,
-        category: str | None,
+    query: str,
+    top_k: int,
+    tenant_id: str,
+    category: str | None,
     ):
         calls["query"] = query
         calls["top_k"] = top_k
@@ -48,6 +48,11 @@ def test_rag_search_returns_results(monkeypatch):
     )
 
     assert response.status_code == 200
+
+    assert calls["query"] == "为什么系统能判断两段文字语义相近？"
+    assert calls["top_k"] == 3
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["category"] == "general"
 
     data = response.json()
     assert data["query"] == "为什么系统能判断两段文字语义相近？"
@@ -85,11 +90,11 @@ def test_rag_ask_returns_answer_and_sources(monkeypatch):
     calls = {}
 
     def fake_answer_question(
-        question: str, 
-        top_k: int, 
-        max_distance: float,
-        tenant_id: str,
-        category: str | None,
+    question: str,
+    top_k: int,
+    max_distance: float,
+    tenant_id: str,
+    category: str | None,
     ):
         calls["question"] = question
         calls["top_k"] = top_k
@@ -111,6 +116,12 @@ def test_rag_ask_returns_answer_and_sources(monkeypatch):
     )
 
     assert response.status_code == 200
+
+    assert calls["question"] == "RAG 为什么需要 chunk？"
+    assert calls["top_k"] == 3
+    assert calls["max_distance"] == 0.9
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["category"] == "general"
 
     data = response.json()
     assert data["question"] == "RAG 为什么需要 chunk？"
@@ -173,7 +184,12 @@ def test_rag_ask_rejects_invalid_max_distance():
     assert response.status_code == 422  # max_distance 不合法，必须大于0
 
 def test_rag_search_returns_500_when_service_fails(monkeypatch):
-    def fake_search_documents(query: str, top_k: int):
+    def fake_search_documents(
+        query: str,
+        top_k: int,
+        tenant_id: str,
+        category: str | None,
+    ):
         raise RuntimeError("Chroma is unavailable")
 
     monkeypatch.setattr(rag_router, "search_documents", fake_search_documents)
@@ -190,7 +206,13 @@ def test_rag_search_returns_500_when_service_fails(monkeypatch):
     assert "RAG search failed" in response.json()["detail"] 
 
 def test_rag_ask_returns_500_when_service_fails(monkeypatch):
-    def fake_answer_question(question: str, top_k: int, max_distance: float):
+    def fake_answer_question(
+        question: str,
+        top_k: int,
+        max_distance: float,
+        tenant_id: str,
+        category: str | None,
+    ):
         raise RuntimeError("LLM is unavailable")
 
     monkeypatch.setattr(rag_router, "answer_question", fake_answer_question)

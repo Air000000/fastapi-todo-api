@@ -45,7 +45,7 @@ class RagAskRequest(BaseModel): # 用户问问题时传进来的请求体
     question: str = Field(..., min_length=1)
     top_k: int = Field(default=3, ge=1, le=10)
     max_distance: float = Field(default=0.9, gt=0)
-    tenant_id: Optional[str] = None
+    # tenant_id: Optional[str] = None
     category: Optional[str] = None
 
 class RagSourceResponse(BaseModel): # sources 里的单条引用来源
