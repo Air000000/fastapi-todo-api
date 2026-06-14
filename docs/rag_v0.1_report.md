@@ -59,11 +59,14 @@ python -m experiments.evals.eval_retrieval
 
 Result:
 
-| Metric      | Value |
-| ----------- | ----: |
-| Total cases |    15 |
-| hit@1       |  0.93 |
-| hit@3       |  1.00 |
+| Metric         |   Value |
+| -------------- | ------: |
+| Total cases    |      15 |
+| hit@1          |    0.93 |
+| hit@3          |    1.00 |
+| mrr@3          |    0.97 |
+| avg_latency_ms | 2126.23 |
+
 
 Main top1 miss:
 
@@ -112,13 +115,16 @@ security
 
 Updated result:
 
-| Metric          | Value |
-| --------------- | ----: |
-| Total cases     |    30 |
-| hit@1           |  0.97 |
-| hit@3           |  1.00 |
-| top1 miss cases |     1 |
-| failed cases    |     0 |
+| Metric          |   Value |
+| --------------- | ------: |
+| Total cases     |      30 |
+| hit@1           |    0.97 |
+| hit@3           |    1.00 |
+| mrr@3           |    0.98 |
+| avg_latency_ms  | 2164.55 |
+| top1 miss cases |       1 |
+| failed cases    |       0 |
+
 
 Raw summary:
 
@@ -387,10 +393,11 @@ tests/test_rag_service.py   2 passed
 
 ## 9. Current Baseline Summary
 
-| Retriever  | Corpus                  | Total Cases | hit@1 | hit@3 | Status  |
-| ---------- | ----------------------- | ----------: | ----: | ----: | ------- |
-| JSON index | Learning docs           |          15 |  0.93 |  1.00 | Healthy |
-| Chroma     | Enterprise support docs |          30 |  0.97 |  1.00 | Healthy |
+| Retriever  | Corpus                  | Total Cases | hit@1 | hit@3 | mrr@3 | avg_latency_ms | Status  |
+| ---------- | ----------------------- | ----------: | ----: | ----: | ----: | -------------: | ------- |
+| JSON index | Learning docs           |          15 |  0.93 |  1.00 |  0.97 |        2126.23 | Healthy |
+| Chroma     | Enterprise support docs |          30 |  0.97 |  1.00 |  0.98 |        2164.55 | Healthy |
+
 
 The current RAG baseline is valid.
 
@@ -408,7 +415,7 @@ Known limitations:
 1. The enterprise eval set has been expanded to 30 cases, but it is still a small curated dataset.
 2. The Chroma enterprise corpus currently has 10 enterprise support documents.
 3. The current eval mainly measures document-level retrieval hit rate.
-4. MRR and latency metrics are not yet included in the report output.
+4. MRR and average retrieval latency are now included in eval output, but latency is measured in the local development environment and should not be interpreted as a production SLA.
 5. The invoice-related top1 miss shows that semantically close finance documents can still compete with each other.
 6. tenant_id is currently provided by a server-side mock tenant context rather than a real authentication or tenant-resolution system.
 7. The current tests validate metadata propagation and filter construction, but not a full production multi-tenant authorization model.
