@@ -7,7 +7,7 @@
 当前版本：
 
 ```text
-RAG Core v0.2
+RAG Core v1
 ```
 
 ------
@@ -30,7 +30,7 @@ RAG Core v0.2
 9. /rag/ask
 10. structured sources
 11. API / service 自动化测试
-12. 企业 RAG eval v1
+12. 企业 RAG eval v1 已完成，包括 hit@1、hit@3、mrr@3、avg latency 和 category breakdown
 ```
 
 ------
@@ -554,95 +554,104 @@ Top2: doc_embedding_notes
 
 ## 14. 当前测试
 
-运行：
+运行 RAG 相关测试：
 
 ```bash
-pytest tests/test_rag_api.py tests/test_rag_service.py tests/test_todos.py
+pytest tests/test_query_chroma.py
+pytest tests/test_rag_api.py
+pytest tests/test_rag_service.py
 ```
 
-当前结果：
+当前覆盖：
 
-```text
-14 passed, 1 warning
-```
-
-测试覆盖：
-
-| 文件                        | 覆盖内容                             |
-| --------------------------- | ------------------------------------ |
-| `tests/test_rag_api.py`     | `/rag/search`、`/rag/ask` API 层测试 |
-| `tests/test_rag_service.py` | service 层参数透传和下游调用测试     |
-| `tests/test_todos.py`       | 早期 Todo CRUD 测试                  |
+| 文件                           | 覆盖内容                             |
+| ---------------------------- | -------------------------------- |
+| `tests/test_query_chroma.py` | Chroma metadata filter           |
+| `tests/test_rag_api.py`      | `/rag/search`、`/rag/ask` API 层测试 |
+| `tests/test_rag_service.py`  | service 层参数透传和下游调用测试             |
 
 RAG API 测试使用 monkeypatch，不调用真实 embedding、Chroma 或 LLM。
+
 
 ------
 
 ## 15. 当前状态表
 
-| Item           | Current Status                                        |
-| -------------- | ----------------------------------------------------- |
-| Documents      | 10 enterprise support docs                            |
-| Categories     | `it`、`hr`、`finance`、`admin`、`security`            |
-| Chunk strategy | `chunk_size=800`、`overlap=120`、`min_chunk_size=150` |
-| Chunks         | 40                                                    |
-| Vector store   | Chroma                                                |
-| Metadata       | `tenant_id`、`category`                               |
-| API filter     | request.category + mock tenant context                |
-| RAG API        | `/rag/search`、`/rag/ask`                             |
-| Tests          | 14 passed                                             |
-| Current eval   | legacy learning-doc eval only                         |
-| Next step      | enterprise RAG eval v1                                |
+| Item                    | Current Status                                             |
+| ----------------------- | ---------------------------------------------------------- |
+| Documents               | 10 enterprise support docs                                 |
+| Categories              | `it`、`hr`、`finance`、`admin`、`security`                 |
+| Chunk strategy          | `chunk_size=800`、`overlap=120`、`min_chunk_size=150`      |
+| Chunks                  | 40                                                         |
+| Vector store            | Chroma                                                     |
+| Metadata                | `tenant_id`、`category`                                    |
+| API filter              | request.category + mock tenant context                     |
+| RAG API                 | `/rag/search`、`/rag/ask`                                  |
+| Tests                   | RAG API / service / metadata filter tests passing          |
+| Legacy eval             | 15 learning-doc eval cases                                 |
+| Enterprise eval         | 30 enterprise support eval cases                           |
+| Enterprise eval metrics | hit@1=0.97, hit@3=1.00, mrr@3=0.98                         |
+| Category breakdown      | admin / finance / hr / it / security                       |
+| Main known ambiguity    | finance: `doc_travel_reimbursement` vs `doc_invoice_rules` |
+| Current phase           | Enterprise RAG Core v1 completed                           |
+| Next step               | Ticket Agent / AgentOps workflow hardening                 |
+
 
 ------
 
-## 16. 下一步：Enterprise RAG Eval v1
+## 16. Enterprise RAG Eval v1
 
-下一步要新增企业文档评测集。
+Enterprise RAG eval v1 已完成。
 
-计划文件：
-
-```text
-experiments/evals/enterprise_rag_cases.jsonl
-experiments/evals/eval_enterprise_chroma_retrieval.py
-```
-
-推荐 eval case 格式：
-
-```json
-{
-  "id": "ent_it_001",
-  "question": "VPN 连不上应该先检查什么？",
-  "expected_document_id": "doc_vpn_guide",
-  "category": "it",
-  "tenant_id": "tenant_demo"
-}
-```
-
-第一版目标：
+当前企业 eval 覆盖：
 
 ```text
-1. 至少 30 条企业支持问题
+1. 30 条企业支持问题
 2. 覆盖 it / hr / finance / admin / security 五类
-3. 每类至少 6 条
+3. 每类 6 条
 4. 使用 category filter 检索
-5. 输出 hit@1、hit@3
-6. 输出 top1_miss_cases
-7. 输出 failed_cases
-8. 分析成功案例和失败案例
+5. 输出 hit@1、hit@3、mrr@3
+6. 输出 avg_latency_ms
+7. 输出 category breakdown
+8. 输出 top1_miss_cases
 ```
 
-完成企业 eval 后，RAG Core v0.2 可以升级为：
+当前 Chroma enterprise eval 结果：
+
+| Metric | Result |
+| ------ | ------ |
+| Total  | 30     |
+| hit@1  | 0.97   |
+| hit@3  | 1.00   |
+| mrr@3  | 0.98   |
+
+当前 category breakdown：
+
+| Category | Total | hit@1 | hit@3 | mrr@3 |
+| -------- | ----- | ----- | ----- | ----- |
+| admin    | 6     | 1.00  | 1.00  | 1.00  |
+| finance  | 6     | 0.83  | 1.00  | 0.92  |
+| hr       | 6     | 1.00  | 1.00  | 1.00  |
+| it       | 6     | 1.00  | 1.00  | 1.00  |
+| security | 6     | 1.00  | 1.00  | 1.00  |
+
+当前唯一主要 top1 miss 位于 finance 场景：
 
 ```text
-RAG Core v1
+question: 发票报销有哪些要求？
+expected_document_id: doc_invoice_rules
+top1: doc_travel_reimbursement
+top2: doc_invoice_rules
 ```
+
+该 case 属于差旅报销与发票规则之间的业务语义重叠，不是 Chroma 检索链路故障。
+
 
 ------
 
 ## 17. 后续方向
 
-完成 enterprise RAG eval 后，项目将进入 Ticket Agent 阶段。
+Enterprise RAG eval 已完成，项目已经进入 Ticket Agent / AgentOps 阶段。
 
 后续路线：
 
@@ -651,11 +660,13 @@ RAG Core v1
 ↓
 Ticket CRUD
 ↓
-Ticket Agent preview
+Ticket Agent preview / confirm
 ↓
 Human approval
 ↓
 Tool calls audit
+↓
+AgentOps read API
 ↓
 AgentOps metrics
 ```
