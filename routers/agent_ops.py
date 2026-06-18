@@ -1,19 +1,20 @@
 from fastapi import APIRouter
 
 from schemas.agent_ops import (
+    AgentOpsMetricsSummaryResponse,
     AgentRunResponse,
     ApprovalRequestResponse,
     ApprovalRequestUpdate,
     ToolCallResponse,
 )
 from services.agent_ops_service import (
+    get_agent_ops_metrics_summary as get_agent_ops_metrics_summary_service,
     get_agent_run as get_agent_run_service,
     list_agent_runs as list_agent_runs_service,
     list_approval_requests_by_run as list_approval_requests_by_run_service,
     list_tool_calls_by_run as list_tool_calls_by_run_service,
     update_approval_request as update_approval_request_service,
 )
-
 
 router = APIRouter(prefix="/agent-ops", tags=["agent-ops"])
 
@@ -82,6 +83,17 @@ def list_approval_requests_by_run(
         ApprovalRequestResponse.model_validate(approval_request)
         for approval_request in approval_requests
     ]
+
+
+@router.get(
+    "/metrics/summary",
+    response_model=AgentOpsMetricsSummaryResponse,
+)
+def get_agent_ops_metrics_summary() -> AgentOpsMetricsSummaryResponse:
+    return get_agent_ops_metrics_summary_service(
+        tenant_id=MOCK_TENANT_ID,
+    )
+
 
 @router.post(
     "/approval-requests/{approval_request_id}/reject",

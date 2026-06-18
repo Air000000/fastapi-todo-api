@@ -360,3 +360,164 @@ def test_get_approval_request_with_wrong_tenant_should_return_404(agent_ops_test
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Approval request not found"
+
+def test_get_agent_ops_metrics_summary_counts_by_tenant(agent_ops_test_engine):
+    """
+    测试 AgentOps summary 只统计当前 tenant 下的 run / tool_call / approval_request。
+    """
+    completed_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="VPN 连不上",
+            category="it",
+            status="completed",
+        )
+    )
+
+    failed_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="创建工单失败",
+            category="it",
+            status="failed",
+        )
+    )
+
+    cancelled_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="取消审批",
+            category="it",
+            status="cancelled",
+        )
+    )
+
+    running_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="等待处理",
+            category="hr",
+            status="running",
+        )
+    )
+
+    other_tenant_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="other_tenant",
+            user_id="user_demo",
+            input_message="其他租户问题",
+            category="it",
+            status="completed",
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=completed_run.id,
+            tenant_id="tenant_demo",
+            tool_name="create_ticket",
+            status="success",
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=failed_run.id,
+            tenant_id="tenant_demo",
+            tool_name="create_ticket",
+            status="failed",
+            error_message="create ticket failed",
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=running_run.id,
+            tenant_id="tenant_demo",
+            tool_name="create_ticket",
+            status="pending",
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=other_tenant_run.id,
+            tenant_id="other_tenant",
+            tool_name="create_ticket",
+            status="success",
+        )
+    )
+
+    agent_ops_service.create_approval_request(
+        ApprovalRequestCreate(
+            agent_run_id=completed_run.id,
+            tenant_id="tenant_demo",
+            status="approved",
+            draft_json="{}",
+            approved_by="user_demo",
+        )
+    )
+
+    agent_ops_service.create_approval_request(
+        ApprovalRequestCreate(
+            agent_run_id=failed_run.id,
+            tenant_id="tenant_demo",
+            status="rejected",
+            draft_json="{}",
+            approved_by="user_demo",
+        )
+    )
+
+    agent_ops_service.create_approval_request(
+        ApprovalRequestCreate(
+            agent_run_id=cancelled_run.id,
+            tenant_id="tenant_demo",
+            status="cancelled",
+            draft_json="{}",
+            approved_by="user_demo",
+        )
+    )
+
+    agent_ops_service.create_approval_request(
+        ApprovalRequestCreate(
+            agent_run_id=running_run.id,
+            tenant_id="tenant_demo",
+            status="pending",
+            draft_json="{}",
+        )
+    )
+
+    agent_ops_service.create_approval_request(
+        ApprovalRequestCreate(
+            agent_run_id=other_tenant_run.id,
+            tenant_id="other_tenant",
+            status="approved",
+            draft_json="{}",
+            approved_by="user_demo",
+        )
+    )
+
+    summary = agent_ops_service.get_agent_ops_metrics_summary(
+        tenant_id="tenant_demo",
+    )
+
+    assert summary.total_agent_runs == 4
+    assert summary.running_agent_runs == 1
+    assert summary.completed_agent_runs == 1
+    assert summary.failed_agent_runs == 1
+    assert summary.cancelled_agent_runs == 1
+
+    assert summary.total_tool_calls == 3
+    assert summary.pending_tool_calls == 1
+    assert summary.successful_tool_calls == 1
+    assert summary.failed_tool_calls == 1
+
+    assert summary.total_approval_requests == 4
+    assert summary.pending_approval_requests == 1
+    assert summary.approved_approval_requests == 1
+    assert summary.rejected_approval_requests == 1
+    assert summary.cancelled_approval_requests == 1

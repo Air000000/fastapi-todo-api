@@ -304,3 +304,58 @@ def test_cancel_approval_request(monkeypatch):
     assert data["approval_type"] == "ticket_creation"
     assert data["status"] == "cancelled"
     assert data["approved_by"] == "user_demo"
+
+
+def test_get_agent_ops_metrics_summary(monkeypatch):
+    calls = {}
+
+    def fake_get_agent_ops_metrics_summary_service(tenant_id: str):
+        calls["tenant_id"] = tenant_id
+
+        return SimpleNamespace(
+            total_agent_runs=4,
+            running_agent_runs=1,
+            completed_agent_runs=1,
+            failed_agent_runs=1,
+            cancelled_agent_runs=1,
+            total_tool_calls=3,
+            pending_tool_calls=1,
+            successful_tool_calls=1,
+            failed_tool_calls=1,
+            total_approval_requests=4,
+            pending_approval_requests=1,
+            approved_approval_requests=1,
+            rejected_approval_requests=1,
+            cancelled_approval_requests=1,
+        )
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "get_agent_ops_metrics_summary_service",
+        fake_get_agent_ops_metrics_summary_service,
+    )
+
+    response = client.get("/agent-ops/metrics/summary")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["tenant_id"] == "tenant_demo"
+
+    assert data["total_agent_runs"] == 4
+    assert data["running_agent_runs"] == 1
+    assert data["completed_agent_runs"] == 1
+    assert data["failed_agent_runs"] == 1
+    assert data["cancelled_agent_runs"] == 1
+
+    assert data["total_tool_calls"] == 3
+    assert data["pending_tool_calls"] == 1
+    assert data["successful_tool_calls"] == 1
+    assert data["failed_tool_calls"] == 1
+
+    assert data["total_approval_requests"] == 4
+    assert data["pending_approval_requests"] == 1
+    assert data["approved_approval_requests"] == 1
+    assert data["rejected_approval_requests"] == 1
+    assert data["cancelled_approval_requests"] == 1

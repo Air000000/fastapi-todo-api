@@ -118,3 +118,21 @@ class ApprovalRequestResponse(BaseModel):
     approved_by: str | None
     created_at: datetime
     decided_at: datetime | None
+
+class AgentOpsMetricsSummaryResponse(BaseModel):
+    total_agent_runs: int
+    running_agent_runs: int
+    completed_agent_runs: int
+    failed_agent_runs: int
+    cancelled_agent_runs: int
+
+    total_tool_calls: int
+    pending_tool_calls: int
+    successful_tool_calls: int
+    failed_tool_calls: int
+
+    total_approval_requests: int
+    pending_approval_requests: int
+    approved_approval_requests: int
+    rejected_approval_requests: int
+    cancelled_approval_requests: int

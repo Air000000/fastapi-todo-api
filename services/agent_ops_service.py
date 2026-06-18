@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from database import engine
 from models.agent_ops import AgentRun, ApprovalRequest, ToolCall
 from schemas.agent_ops import (
+    AgentOpsMetricsSummaryResponse,
     AgentRunCreate,
     AgentRunUpdate,
     ApprovalRequestCreate,
@@ -274,3 +275,55 @@ def update_approval_request(
         session.refresh(approval_request)
 
         return approval_request
+    
+def count_status(items, status: str) -> int:
+    return sum(1 for item in items if item.status == status)
+
+
+def get_agent_ops_metrics_summary(
+    tenant_id: str,
+) -> AgentOpsMetricsSummaryResponse:
+    """
+    汇总当前 tenant 下的 AgentOps 指标。
+
+    第一版使用简单的按 tenant 查询 + Python 内存计数。
+    当前数据量很小，优先保持实现清晰。
+    后续如果数据量增大，再改为数据库 count 聚合。
+    """
+    with Session(engine) as session:
+        agent_runs = list(
+            session.exec(
+                select(AgentRun).where(AgentRun.tenant_id == tenant_id)
+            ).all()
+        )
+
+        tool_calls = list(
+            session.exec(
+                select(ToolCall).where(ToolCall.tenant_id == tenant_id)
+            ).all()
+        )
+
+        approval_requests = list(
+            session.exec(
+                select(ApprovalRequest).where(
+                    ApprovalRequest.tenant_id == tenant_id
+                )
+            ).all()
+        )
+
+    return AgentOpsMetricsSummaryResponse(
+        total_agent_runs=len(agent_runs),
+        running_agent_runs=count_status(agent_runs, "running"),
+        completed_agent_runs=count_status(agent_runs, "completed"),
+        failed_agent_runs=count_status(agent_runs, "failed"),
+        cancelled_agent_runs=count_status(agent_runs, "cancelled"),
+        total_tool_calls=len(tool_calls),
+        pending_tool_calls=count_status(tool_calls, "pending"),
+        successful_tool_calls=count_status(tool_calls, "success"),
+        failed_tool_calls=count_status(tool_calls, "failed"),
+        total_approval_requests=len(approval_requests),
+        pending_approval_requests=count_status(approval_requests, "pending"),
+        approved_approval_requests=count_status(approval_requests, "approved"),
+        rejected_approval_requests=count_status(approval_requests, "rejected"),
+        cancelled_approval_requests=count_status(approval_requests, "cancelled"),
+    )
