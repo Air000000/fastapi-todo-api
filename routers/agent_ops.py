@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from schemas.agent_ops import (
     AgentRunResponse,
     ApprovalRequestResponse,
+    ApprovalRequestUpdate,
     ToolCallResponse,
 )
 from services.agent_ops_service import (
@@ -10,12 +11,14 @@ from services.agent_ops_service import (
     list_agent_runs as list_agent_runs_service,
     list_approval_requests_by_run as list_approval_requests_by_run_service,
     list_tool_calls_by_run as list_tool_calls_by_run_service,
+    update_approval_request as update_approval_request_service,
 )
 
 
 router = APIRouter(prefix="/agent-ops", tags=["agent-ops"])
 
 MOCK_TENANT_ID = "tenant_demo"
+MOCK_USER_ID = "user_demo"
 
 
 @router.get("/runs", response_model=list[AgentRunResponse])
@@ -79,3 +82,40 @@ def list_approval_requests_by_run(
         ApprovalRequestResponse.model_validate(approval_request)
         for approval_request in approval_requests
     ]
+
+@router.post(
+    "/approval-requests/{approval_request_id}/reject",
+    response_model=ApprovalRequestResponse,
+)
+def reject_approval_request(
+    approval_request_id: int,
+) -> ApprovalRequestResponse:
+    approval_request = update_approval_request_service(
+        approval_request_id=approval_request_id,
+        tenant_id=MOCK_TENANT_ID,
+        approval_request_update=ApprovalRequestUpdate(
+            status="rejected",
+            approved_by=MOCK_USER_ID,
+        ),
+    )
+
+    return ApprovalRequestResponse.model_validate(approval_request)
+
+
+@router.post(
+    "/approval-requests/{approval_request_id}/cancel",
+    response_model=ApprovalRequestResponse,
+)
+def cancel_approval_request(
+    approval_request_id: int,
+) -> ApprovalRequestResponse:
+    approval_request = update_approval_request_service(
+        approval_request_id=approval_request_id,
+        tenant_id=MOCK_TENANT_ID,
+        approval_request_update=ApprovalRequestUpdate(
+            status="cancelled",
+            approved_by=MOCK_USER_ID,
+        ),
+    )
+
+    return ApprovalRequestResponse.model_validate(approval_request)

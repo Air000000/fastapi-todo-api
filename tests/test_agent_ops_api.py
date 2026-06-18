@@ -206,3 +206,101 @@ def test_list_approval_requests_by_run(monkeypatch):
     assert data[0]["approval_type"] == "ticket_creation"
     assert data[0]["status"] == "approved"
     assert data[0]["approved_by"] == "user_demo"
+
+def test_reject_approval_request(monkeypatch):
+    calls = {}
+
+    def fake_update_approval_request_service(
+        approval_request_id,
+        tenant_id,
+        approval_request_update,
+    ):
+        calls["approval_request_id"] = approval_request_id
+        calls["tenant_id"] = tenant_id
+        calls["status"] = approval_request_update.status
+        calls["approved_by"] = approval_request_update.approved_by
+
+        return SimpleNamespace(
+            id=approval_request_id,
+            agent_run_id=1,
+            tenant_id=tenant_id,
+            approval_type="ticket_creation",
+            status=approval_request_update.status,
+            draft_json='{"title":"VPN 连不上"}',
+            approved_by=approval_request_update.approved_by,
+            created_at=datetime(2026, 1, 1, 10, 0, 5),
+            decided_at=datetime(2026, 1, 1, 10, 0, 8),
+        )
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "update_approval_request_service",
+        fake_update_approval_request_service,
+    )
+
+    response = client.post("/agent-ops/approval-requests/10/reject")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["approval_request_id"] == 10
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["status"] == "rejected"
+    assert calls["approved_by"] == "user_demo"
+
+    assert data["id"] == 10
+    assert data["agent_run_id"] == 1
+    assert data["tenant_id"] == "tenant_demo"
+    assert data["approval_type"] == "ticket_creation"
+    assert data["status"] == "rejected"
+    assert data["approved_by"] == "user_demo"
+
+def test_cancel_approval_request(monkeypatch):
+    calls = {}
+
+    def fake_update_approval_request_service(
+        approval_request_id,
+        tenant_id,
+        approval_request_update,
+    ):
+        calls["approval_request_id"] = approval_request_id
+        calls["tenant_id"] = tenant_id
+        calls["status"] = approval_request_update.status
+        calls["approved_by"] = approval_request_update.approved_by
+
+        return SimpleNamespace(
+            id=approval_request_id,
+            agent_run_id=1,
+            tenant_id=tenant_id,
+            approval_type="ticket_creation",
+            status=approval_request_update.status,
+            draft_json='{"title":"VPN 连不上"}',
+            approved_by=approval_request_update.approved_by,
+            created_at=datetime(2026, 1, 1, 10, 0, 5),
+            decided_at=datetime(2026, 1, 1, 10, 0, 8),
+        )
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "update_approval_request_service",
+        fake_update_approval_request_service,
+    )
+
+    response = client.post("/agent-ops/approval-requests/10/cancel")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["approval_request_id"] == 10
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["status"] == "cancelled"
+    assert calls["approved_by"] == "user_demo"
+
+    assert data["id"] == 10
+    assert data["agent_run_id"] == 1
+    assert data["tenant_id"] == "tenant_demo"
+    assert data["approval_type"] == "ticket_creation"
+    assert data["status"] == "cancelled"
+    assert data["approved_by"] == "user_demo"
