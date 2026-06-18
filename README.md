@@ -124,20 +124,22 @@ Enterprise Support AI Copilot MVP
 
 后续开发重点：
 
-| 模块                      | 状态   |
-| ------------------------- | ------ |
-| Enterprise RAG eval v1    | 已完成 |
+| 模块                        | 状态                                      |
+| ------------------------- | --------------------------------------- |
+| Enterprise RAG eval v1    | 已完成                                     |
 | Retrieval metrics         | 已完成 hit@1 / hit@3 / mrr@3 / avg latency |
-| Category breakdown        | 已完成 |
-| Ticket CRUD               | 已完成 |
-| Ticket Agent              | 已完成 MVP |
-| Human approval            | 已完成 MVP |
-| Tool calls audit          | 已完成 MVP |
-| AgentOps records          | 已完成 MVP |
-| AgentOps 查询 API         | 下一步 |
-| rejected / cancelled flow | 下一步 |
-| Document upload API       | 待开发 |
-| Docker Compose 最终部署版 | 待整理 |
+| Category breakdown        | 已完成                                     |
+| Ticket CRUD               | 已完成                                     |
+| Ticket Agent              | 已完成 MVP                                 |
+| Human approval            | 已完成 MVP                                 |
+| Tool calls audit          | 已完成 MVP                                 |
+| AgentOps records          | 已完成 MVP                                 |
+| AgentOps 查询 API           | 已完成 MVP                                 |
+| rejected / cancelled flow | 下一步                                     |
+| AgentOps metrics summary  | 下一步                                     |
+| Document upload API       | 待开发                                     |
+| Docker Compose 最终部署版      | 待整理                                     |
+
 
 ------
 
@@ -161,12 +163,25 @@ Enterprise Support AI Copilot MVP
 ```text
 fastapi-todo-api/
 ├── main.py
+├── database.py
+├── models/
+│   ├── ticket.py
+│   └── agent_ops.py
 ├── routers/
-│   └── rag.py
+│   ├── rag.py
+│   ├── tickets.py
+│   ├── agent_ticket.py
+│   └── agent_ops.py
 ├── schemas/
-│   └── rag.py
+│   ├── rag.py
+│   ├── ticket.py
+│   ├── agent_ticket.py
+│   └── agent_ops.py
 ├── services/
-│   └── rag_service.py
+│   ├── rag_service.py
+│   ├── ticket_service.py
+│   ├── ticket_agent_service.py
+│   └── agent_ops_service.py
 ├── experiments/
 │   ├── docs/
 │   │   ├── admin/
@@ -176,24 +191,27 @@ fastapi-todo-api/
 │   │   └── security/
 │   ├── index/
 │   ├── rag_local/
-│   │   ├── document_loader.py
-│   │   ├── text_splitter.py
-│   │   ├── build_rag_index.py
-│   │   ├── query_index.py
-│   │   ├── build_chroma_index.py
-│   │   ├── query_chroma.py
-│   │   └── query_rag_chroma.py
-│   ├── evals/
-│   └── README.md
+│   └── evals/
+├── docs/
+│   ├── rag_v0.1_report.md
+│   ├── rag_core_v1_report.md
+│   ├── ticket_crud_mvp_report.md
+│   └── ticket_agent_mvp_report.md
 ├── tests/
 │   ├── test_todos.py
+│   ├── test_query_chroma.py
 │   ├── test_rag_api.py
-│   └── test_rag_service.py
+│   ├── test_rag_service.py
+│   ├── test_tickets.py
+│   ├── test_agent_ops_service.py
+│   ├── test_agent_ops_api.py
+│   ├── test_ticket_agent_service.py
+│   └── test_agent_ticket_api.py
 ├── data/
 ├── Dockerfile
 ├── requirements.txt
 ├── .env.example
-├── .gitattributes
+├── AGENTS.md
 └── README.md
 ```
 
@@ -409,6 +427,7 @@ pytest tests/test_rag_service.py
 pytest tests/test_todos.py
 pytest tests/test_tickets.py
 pytest tests/test_agent_ops_service.py
+pytest tests/test_agent_ops_api.py
 pytest tests/test_ticket_agent_service.py
 pytest tests/test_agent_ticket_api.py
 ```
@@ -421,11 +440,17 @@ RAG / Ticket / AgentOps / Todo focused test suites are passing.
 
 测试覆盖：
 
-| 文件                        | 覆盖内容                                              |
-| --------------------------- | ----------------------------------------------------- |
-| `tests/test_todos.py`       | Todo 基础 CRUD 和请求校验                             |
-| `tests/test_rag_api.py`     | RAG API happy path、422 validation、500 service error |
-| `tests/test_rag_service.py` | service 层是否正确调用底层 search / ask 函数          |
+| 文件 | 覆盖内容 |
+| ---- | -------- |
+| `tests/test_todos.py` | Todo 基础 CRUD 和请求校验 |
+| `tests/test_query_chroma.py` | Chroma metadata filter |
+| `tests/test_rag_api.py` | RAG API happy path、validation、service error |
+| `tests/test_rag_service.py` | RAG service 层参数透传和下游调用 |
+| `tests/test_tickets.py` | Ticket CRUD |
+| `tests/test_agent_ops_service.py` | AgentRun / ToolCall / ApprovalRequest service |
+| `tests/test_agent_ops_api.py` | AgentOps read API |
+| `tests/test_ticket_agent_service.py` | Ticket Agent preview / confirm / AgentOps 轨迹 |
+| `tests/test_agent_ticket_api.py` | Ticket Agent API request / response / validation |
 
 RAG 测试使用 `monkeypatch` 隔离真实 Chroma、embedding 和 LLM 调用，因此不会消耗 token。
 
@@ -433,10 +458,11 @@ RAG 测试使用 `monkeypatch` 隔离真实 Chroma、embedding 和 LLM 调用，
 
 ## 12. 当前版本记录
 
-| Version                         | Documents | Categories                           | Chunks | Vector Store  | Eval             |
-| ------------------------------- | --------- | ------------------------------------ | ------ | ------------- | ---------------- |
-| RAG v0.1 learning-doc baseline  | 5         | general                              | 5      | JSON / Chroma | 15 条旧 eval     |
-| RAG Core v0.2 enterprise corpus | 10        | it / hr / finance / admin / security | 40     | Chroma        | 企业 eval 待开发 |
+| Version                         | Documents | Categories                           | Chunks | Vector Store  | Eval |
+| ------------------------------- | --------- | ------------------------------------ | ------ | ------------- | ---- |
+| RAG v0.1 learning-doc baseline  | 5         | general                              | 5      | JSON / Chroma | 15 条 learning eval |
+| Enterprise RAG Core             | 10        | it / hr / finance / admin / security | 40     | Chroma        | 30 条 enterprise eval |
+| Ticket Agent MVP                | 10        | it / hr / finance / admin / security | 40     | Chroma + SQLite | preview / confirm / AgentOps tests |
 
 旧 learning-doc baseline 的 eval 结果：
 
@@ -447,49 +473,44 @@ RAG 测试使用 `monkeypatch` 隔离真实 Chroma、embedding 和 LLM 调用，
 
 旧 eval 基于 FastAPI、Docker、Embedding、RAG、SQLModel 学习文档，主要用于记录早期 RAG 学习阶段的 baseline。当前企业文档集会使用新的 enterprise RAG eval 进行评测。
 
+企业 Chroma eval 当前结果：
+
+| Metric | Result |
+| ------ | ------ |
+| Total | 30 |
+| hit@1 | 0.97 |
+| hit@3 | 1.00 |
+| mrr@3 | 0.98 |
+
+当前唯一主要 top1 miss 是 finance 场景中 `doc_travel_reimbursement` 与 `doc_invoice_rules` 的边界问题，属于业务文档语义重叠，不是检索链路故障。
 ------
+
 
 ## 13. 下一步计划
 
 短期下一步：
 
 ```text
-企业 RAG eval v1
+Ticket Agent v1 cleanup
 ```
 
 计划包括：
-
-```text
-1. 新增 enterprise_rag_cases.jsonl
-2. 设计 30 条企业支持问题
-3. 每条 case 包含 question、expected_document_id、category
-4. eval runner 支持 category filter
-5. 输出 hit@1、hit@3、top1_miss_cases、failed_cases
-6. 分析成功案例和失败案例
-```
+1. rejected / cancelled approval flow
+2. AgentRun latency / retrieval summary
+3. ToolCall 错误类型细化
+4. AgentOps metrics summary
+5. 端到端 API smoke test
 
 中期计划：
-
-```text
-1. retrieval logs
-2. latency / token metrics
-3. documents / chunks 后端化
-4. Ticket CRUD
-5. Ticket Agent preview / confirm
-6. tool_calls / agent_runs audit
-7. human approval
-```
+1. retrieval logs 后端化
+2. documents / chunks 后端化
+3. document upload API
+4. 真实 tenant / user auth context
+5. AgentOps dashboard
+6. Docker Compose 最终部署版
 
 最终目标：
-
-```text
-企业内部知识库 RAG
-+
-受控 Ticket Agent
-+
-AgentOps 审计与评测
-```
-
+企业内部知识库 RAG + 受控 Ticket Agent + AgentOps 审计与评测
 ------
 
 ## 14. 项目说明

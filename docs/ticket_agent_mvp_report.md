@@ -455,22 +455,21 @@ tests/test_agent_ticket_api.py     6 passed
 
 ```text
 1. 增加 rejected / cancelled approval flow。
-2. 增加 rejected / cancelled approval flow。
-3. 在 AgentRun 中记录 latency 和 retrieval summary。
-4. 在 ToolCall 中记录更完整的错误类型。
+2. 在 AgentRun 中记录 latency 和 retrieval summary。
+3. 在 ToolCall 中记录更完整的错误类型。
+4. 增加 AgentOps metrics summary。
 5. 增加端到端 API smoke test。
-6. 更新 README 项目状态。
+6. 后续接入真实 tenant / user auth context。
 ```
 
 ---
 
-## 12. 阶段结论
+## 13. 阶段结论
 
 Ticket Agent MVP 已经完成受控 preview / confirm 闭环。
 
 当前系统已经具备：
 
-```text
 RAG 知识检索
 Ticket CRUD
 Ticket preview
@@ -479,8 +478,8 @@ Ticket preview
 agent_runs 运行记录
 approval_requests 审批记录
 tool_calls 工具调用审计
+AgentOps read API
 基础 tenant 隔离
 service 和 API 测试
-```
 
 该阶段已经可以作为后续 Enterprise Support AI Copilot 的 action workflow 基线。
