@@ -73,7 +73,10 @@ GET /agent-ops/runs
 GET /agent-ops/runs/{agent_run_id}
 GET /agent-ops/runs/{agent_run_id}/tool-calls
 GET /agent-ops/runs/{agent_run_id}/approval-requests
+POST /agent-ops/approval-requests/{approval_request_id}/reject
+POST /agent-ops/approval-requests/{approval_request_id}/cancel
 AgentOps API 测试
+
 ```
 
 ---
@@ -84,6 +87,8 @@ AgentOps API 测试
 | ------ | -------------------------------------------------- | -------------------------- |
 | POST   | `/agent/ticket/preview`                            | 根据用户问题生成工单草稿和审批请求          |
 | POST   | `/agent/ticket/confirm`                            | 用户确认后创建真实工单                |
+| POST   | `/agent-ops/approval-requests/{approval_request_id}/reject` | 拒绝审批请求，不创建 ticket 或 tool_call |
+| POST   | `/agent-ops/approval-requests/{approval_request_id}/cancel` | 取消审批请求，不创建 ticket 或 tool_call |
 | GET    | `/agent-ops/runs`                                  | 查询当前 tenant 下的 AgentRun 列表 |
 | GET    | `/agent-ops/runs/{agent_run_id}`                   | 查询单次 AgentRun 详情           |
 | GET    | `/agent-ops/runs/{agent_run_id}/tool-calls`        | 查询单次 AgentRun 下的工具调用记录     |
@@ -242,7 +247,7 @@ finished_at
 
 ---
 
-## 7. AgentOps 查询 API
+## 7. AgentOps 查询与审批决策 API
 
 当前已经新增 AgentOps 只读查询 API，用于查看 Ticket Agent 的执行轨迹。
 
@@ -262,6 +267,16 @@ GET /agent-ops/runs/{agent_run_id}/approval-requests
 2. 查询单次 agent run 详情。
 3. 查询单次 agent run 关联的 tool_calls。
 4. 查询单次 agent run 关联的 approval_requests。
+
+审批决策能力：
+
+1. reject：将 approval_request 更新为 rejected。
+2. cancel：将 approval_request 更新为 cancelled。
+3. reject / cancel 不会创建 ticket。
+4. reject / cancel 不会创建 tool_call。
+
+当前设计中，真实 ticket 创建仍然只发生在 `/agent/ticket/confirm` 流程中。
+
 
 设计原则：
 
@@ -423,7 +438,7 @@ pytest tests/test_agent_ticket_api.py
 ```text
 tests/test_tickets.py              9 passed
 tests/test_agent_ops_service.py    9 passed
-tests/test_agent_ops_api.py        4 passed
+tests/test_agent_ops_api.py        6 passed
 tests/test_ticket_agent_service.py 9 passed
 tests/test_agent_ticket_api.py     6 passed
 ```
@@ -442,8 +457,8 @@ tests/test_agent_ticket_api.py     6 passed
 3. 没有真实权限系统，只使用 mock tenant/user。
 4. 没有 agent run latency、token usage、retrieval distance 聚合指标。
 5. AgentOps 目前只有只读查询 API，尚未提供 dashboard 或聚合统计。
-6. 没有真实前端确认界面。
-7. 当前 confirm 只支持 approved 流程，尚未实现 rejected / cancelled API。
+6. 当前 approval confirm / reject / cancel 都已具备后端 API，但尚未接入真实前端审批界面。
+7. 当前 approval decision 仍使用 mock user context，尚未接入真实审批人身份。
 8. 当前 agent 规则依赖关键词，仍可能出现边界误判。
 ```
 
@@ -454,13 +469,14 @@ tests/test_agent_ticket_api.py     6 passed
 建议进入 Ticket Agent v1 cleanup：
 
 ```text
-1. 增加 rejected / cancelled approval flow。
-2. 在 AgentRun 中记录 latency 和 retrieval summary。
-3. 在 ToolCall 中记录更完整的错误类型。
-4. 增加 AgentOps metrics summary。
-5. 增加端到端 API smoke test。
-6. 后续接入真实 tenant / user auth context。
+1. 在 AgentRun 中记录 latency 和 retrieval summary。
+2. 在 ToolCall 中记录更完整的错误类型。
+3. 增加 AgentOps metrics summary。
+4. 增加端到端 API smoke test。
+5. 后续接入真实 tenant / user auth context。
+6. 后续接入真实前端审批界面。
 ```
+
 
 ---
 

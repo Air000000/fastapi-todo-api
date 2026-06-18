@@ -96,7 +96,7 @@ tests/test_rag_service.py          2 passed
 tests/test_todos.py                4 passed
 tests/test_tickets.py              9 passed
 tests/test_agent_ops_service.py    9 passed
-tests/test_agent_ops_api.py        4 passed
+tests/test_agent_ops_api.py        6 passed
 tests/test_ticket_agent_service.py 9 passed
 tests/test_agent_ticket_api.py     6 passed
 ```
@@ -126,6 +126,8 @@ Ticket creation
 AgentOps status update
 ↓
 AgentOps read APIs
+↓
+Approval reject / cancel APIs
 ```
 
 The current system uses mock tenant and user context:
