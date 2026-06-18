@@ -39,7 +39,8 @@ Enterprise Support AI Copilot
     ├── approval_requests
     ├── tool_calls
     ├── AgentOps read APIs
-    └── approval reject / cancel APIs
+    ├── approval reject / cancel APIs
+    └── AgentOps metrics summary API
 ```
 
 ------
@@ -126,22 +127,23 @@ Enterprise Support AI Copilot MVP
 
 后续开发重点：
 
-| 模块                        | 状态                                     |
-| ------------------------- | ---------------------------------------    |
-| Enterprise RAG eval v1    | 已完成                                     |
-| Retrieval metrics         | 已完成 hit@1 / hit@3 / mrr@3 / avg latency |
-| Category breakdown        | 已完成                                     |
-| Ticket CRUD               | 已完成                                     |
-| Ticket Agent              | 已完成 MVP                                 |
-| Human approval            | 已完成 MVP                                 |
-| Tool calls audit          | 已完成 MVP                                 |
-| AgentOps records          | 已完成 MVP                                 |
-| AgentOps 查询 API         | 已完成 MVP                                 |
-| rejected / cancelled flow | 已完成 MVP                                 |
-| AgentOps metrics summary  | 下一步                                     |
-| Document upload API       | 待开发                                     |
-| Docker Compose 最终部署版  | 待整理                                     |
-| 真实前端审批界面           | 下一步                                     |
+| 模块                             | 状态                                      |
+| ---------------------------------| ------------------------------------------|
+| Enterprise RAG eval v1           | 已完成                                     |
+| Retrieval metrics                | 已完成 hit@1 / hit@3 / mrr@3 / avg latency |
+| Category breakdown               | 已完成                                     |
+| Ticket CRUD                      | 已完成                                     |
+| Ticket Agent                     | 已完成 MVP                                 |
+| Human approval                   | 已完成 MVP                                 |
+| Tool calls audit                 | 已完成 MVP                                 |
+| AgentOps records                 | 已完成 MVP                                 |
+| AgentOps 查询 API                | 已完成 MVP                                 |
+| rejected / cancelled flow        | 已完成 MVP                                 |
+| AgentOps metrics summary         | 已完成 MVP                                 |
+| AgentOps dashboard / 时间窗口筛选 | 下一步                                     |
+| Document upload API              | 待开发                                     |
+| Docker Compose 最终部署版         | 待整理                                     |
+| 真实前端审批界面                  | 下一步                                     |
 
 ------
 
@@ -449,8 +451,8 @@ RAG / Ticket / AgentOps / Todo focused test suites are passing.
 | `tests/test_rag_api.py` | RAG API happy path、validation、service error |
 | `tests/test_rag_service.py` | RAG service 层参数透传和下游调用 |
 | `tests/test_tickets.py` | Ticket CRUD |
-| `tests/test_agent_ops_service.py` | AgentRun / ToolCall / ApprovalRequest service |
-| `tests/test_agent_ops_api.py` | AgentOps read API + approval reject / cancel API |
+| `tests/test_agent_ops_service.py` | AgentRun / ToolCall / ApprovalRequest service + metrics summary |
+| `tests/test_agent_ops_api.py` | AgentOps read API + approval reject / cancel API + metrics summary API |
 | `tests/test_ticket_agent_service.py` | Ticket Agent preview / confirm / AgentOps 轨迹 |
 | `tests/test_agent_ticket_api.py` | Ticket Agent API request / response / validation |
 
@@ -499,10 +501,10 @@ Ticket Agent v1 cleanup
 计划包括：
 1. AgentRun latency / retrieval summary
 2. ToolCall 错误类型细化
-3. AgentOps metrics summary
-4. 端到端 API smoke test
-5. 真实 tenant / user auth context
-6. 真实前端审批界面
+3. 端到端 API smoke test
+4. 真实 tenant / user auth context
+5. 真实前端审批界面
+6. AgentOps dashboard / 时间窗口筛选
 
 中期计划：
 1. retrieval logs 后端化
@@ -520,6 +522,5 @@ Ticket Agent v1 cleanup
 
 仓库名保留为 `fastapi-todo-api`，因为项目最初从 FastAPI Todo API 开始演进。当前 `learn-rag` 分支是 `Enterprise Support AI Copilot` 的开发分支。
 
-当前 `learn-rag` 分支已经完成 Enterprise RAG Core v1、Ticket CRUD MVP、Ticket Agent MVP、AgentOps read API 和 approval reject / cancel API。后续可以在该分支继续推进 AgentOps metrics、真实 tenant / user auth context、真实前端审批界面和 Docker Compose 最终部署版。
+当前 `learn-rag` 分支已经完成 Enterprise RAG Core v1、Ticket CRUD MVP、Ticket Agent MVP、AgentOps read API、approval reject / cancel API 和 AgentOps metrics summary API。后续可以在该分支继续推进 AgentRun latency / retrieval summary、ToolCall 错误类型细化、真实 tenant / user auth context、真实前端审批界面、AgentOps dashboard / 时间窗口筛选和 Docker Compose 最终部署版。
 
-等 `learn-rag` 分支进一步稳定后，可以考虑合并到 `main` 分支，或将默认分支切换为 `learn-rag`。

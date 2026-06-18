@@ -11,6 +11,10 @@ Enterprise RAG Core
 Ticket CRUD
 Ticket Agent preview / confirm
 AgentOps audit records
+AgentOps read APIs
+approval reject / cancel APIs
+AgentOps metrics summary API
+
 ```
 
 ## Current Focus
@@ -95,8 +99,8 @@ tests/test_rag_api.py              8 passed
 tests/test_rag_service.py          2 passed
 tests/test_todos.py                4 passed
 tests/test_tickets.py              9 passed
-tests/test_agent_ops_service.py    9 passed
-tests/test_agent_ops_api.py        6 passed
+tests/test_agent_ops_service.py    10 passed
+tests/test_agent_ops_api.py        7 passed
 tests/test_ticket_agent_service.py 9 passed
 tests/test_agent_ticket_api.py     6 passed
 ```
@@ -128,6 +132,9 @@ AgentOps status update
 AgentOps read APIs
 ↓
 Approval reject / cancel APIs
+↓
+AgentOps metrics summary API
+
 ```
 
 The current system uses mock tenant and user context:
