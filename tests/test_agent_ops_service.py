@@ -62,12 +62,16 @@ def test_create_and_update_agent_run(agent_ops_test_engine):
         agent_run_update=AgentRunUpdate(
             status="completed",
             result_summary="生成工单草稿并等待用户确认。",
+            latency_ms=123,
+            retrieval_summary_json='{"top_k":3,"sources_count":1}',
         ),
     )
 
     assert updated.status == "completed"
     assert updated.result_summary == "生成工单草稿并等待用户确认。"
     assert updated.updated_at is not None
+    assert updated.latency_ms == 123
+    assert updated.retrieval_summary_json == '{"top_k":3,"sources_count":1}'
 
     fetched = agent_ops_service.get_agent_run(
         agent_run_id=agent_run.id,
@@ -76,7 +80,8 @@ def test_create_and_update_agent_run(agent_ops_test_engine):
 
     assert fetched.id == agent_run.id
     assert fetched.status == "completed"
-
+    assert fetched.latency_ms == 123
+    assert fetched.retrieval_summary_json == '{"top_k":3,"sources_count":1}'
 
 def test_list_agent_runs_with_filters(agent_ops_test_engine):
     """

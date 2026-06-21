@@ -32,6 +32,8 @@ def test_list_agent_runs(monkeypatch):
                 category="it",
                 status="completed",
                 result_summary="Ticket created: 100",
+                latency_ms=123,
+                retrieval_summary_json='{"top_k":3,"sources_count":1}',
                 created_at=datetime(2026, 1, 1, 10, 0, 0),
                 updated_at=datetime(2026, 1, 1, 10, 1, 0),
             )
@@ -68,7 +70,8 @@ def test_list_agent_runs(monkeypatch):
     assert data[0]["category"] == "it"
     assert data[0]["status"] == "completed"
     assert data[0]["result_summary"] == "Ticket created: 100"
-
+    assert data[0]["latency_ms"] == 123
+    assert data[0]["retrieval_summary_json"] == '{"top_k":3,"sources_count":1}'
 
 def test_get_agent_run(monkeypatch):
     calls = {}
@@ -81,17 +84,19 @@ def test_get_agent_run(monkeypatch):
         calls["tenant_id"] = tenant_id
 
         return SimpleNamespace(
-            id=agent_run_id,
-            tenant_id=tenant_id,
-            user_id="user_demo",
-            agent_name="ticket_agent",
-            input_message="VPN 连不上",
-            category="it",
-            status="completed",
-            result_summary="Ticket created: 100",
-            created_at=datetime(2026, 1, 1, 10, 0, 0),
-            updated_at=datetime(2026, 1, 1, 10, 1, 0),
-        )
+                    id=agent_run_id,
+                    tenant_id=tenant_id,
+                    user_id="user_demo",
+                    agent_name="ticket_agent",
+                    input_message="VPN 连不上",
+                    category="it",
+                    status="completed",
+                    result_summary="Ticket created: 100",
+                    latency_ms=123,
+                    retrieval_summary_json='{"top_k":3,"sources_count":1}',
+                    created_at=datetime(2026, 1, 1, 10, 0, 0),
+                    updated_at=datetime(2026, 1, 1, 10, 1, 0),
+                )
 
     monkeypatch.setattr(
         agent_ops_router,
@@ -112,6 +117,8 @@ def test_get_agent_run(monkeypatch):
     assert data["tenant_id"] == "tenant_demo"
     assert data["status"] == "completed"
 
+    assert data["latency_ms"] == 123
+    assert data["retrieval_summary_json"] == '{"top_k":3,"sources_count":1}'
 
 def test_list_tool_calls_by_run(monkeypatch):
     calls = {}

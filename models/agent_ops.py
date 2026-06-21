@@ -25,6 +25,9 @@ class AgentRun(SQLModel, table=True):
     status: str = Field(default="running", index=True)
     result_summary: Optional[str] = Field(default=None, max_length=2000)
 
+    latency_ms: Optional[int] = Field(default=None)
+    retrieval_summary_json: Optional[str] = Field(default=None)
+
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

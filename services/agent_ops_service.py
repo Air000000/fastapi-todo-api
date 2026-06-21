@@ -34,6 +34,8 @@ def create_agent_run(agent_run_create: AgentRunCreate) -> AgentRun:
         category=agent_run_create.category,
         status=agent_run_create.status,
         result_summary=agent_run_create.result_summary,
+        latency_ms=agent_run_create.latency_ms,
+        retrieval_summary_json=agent_run_create.retrieval_summary_json,
     )
 
     with Session(engine) as session:

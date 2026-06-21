@@ -39,11 +39,15 @@ class AgentRunCreate(BaseModel):
     category: str | None = Field(default=None, max_length=100)
     status: AgentRunStatus = "running"
     result_summary: str | None = Field(default=None, max_length=2000)
+    latency_ms: int | None = Field(default=None, ge=0)
+    retrieval_summary_json: str | None = None
 
 
 class AgentRunUpdate(BaseModel):
     status: AgentRunStatus | None = None
     result_summary: str | None = Field(default=None, max_length=2000)
+    latency_ms: int | None = Field(default=None, ge=0)
+    retrieval_summary_json: str | None = None
 
 
 class AgentRunResponse(BaseModel):
@@ -57,6 +61,8 @@ class AgentRunResponse(BaseModel):
     category: str | None
     status: str
     result_summary: str | None
+    latency_ms: int | None
+    retrieval_summary_json: str | None
     created_at: datetime
     updated_at: datetime
 
