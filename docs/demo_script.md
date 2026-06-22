@@ -885,3 +885,22 @@ Metrics summary
 ```
 
 ---
+
+## 19. Optional: Run Smoke Script
+
+如果不想手动通过 Swagger 点击完整流程，可以运行 smoke script：
+
+```bash
+python scripts/smoke_agentops_flow.py
+```
+
+该脚本会自动验证：
+
+preview
+search_kb tool_call
+classify_ticket tool_call
+pending approval_request
+confirm
+create_ticket tool_call
+approved approval_request
+metrics summary
