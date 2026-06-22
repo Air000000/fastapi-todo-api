@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - learn-rag
+  pull_request:
+    branches:
+      - main
+      - learn-rag
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      DASHSCOPE_API_KEY: dummy_key_for_tests
+      DASHSCOPE_BASE_URL: https://dashscope.aliyuncs.com/compatible-mode/v1
+      DASHSCOPE_MODEL: qwen3.5-plus
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile Python files
+        run: |
+          python -m compileall -q .
+
+      - name: Run focused tests
+        run: |
+          pytest \
+            tests/test_todos.py \
+            tests/test_rag_api.py \
+            tests/test_rag_service.py \
+            tests/test_tickets.py \
+            tests/test_agent_ops_service.py \
+            tests/test_agent_ops_api.py \
+            tests/test_ticket_agent_service.py \
+            tests/test_agent_ticket_api.py
