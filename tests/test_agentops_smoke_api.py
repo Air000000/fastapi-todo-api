@@ -8,8 +8,31 @@ from fastapi.testclient import TestClient
 
 from main import app
 
+import pytest
+from sqlmodel import SQLModel, create_engine
+
+import services.agent_ops_service as agent_ops_service
+import services.ticket_service as ticket_service
 
 client = TestClient(app)
+
+
+@pytest.fixture()
+def smoke_test_engine(tmp_path, monkeypatch):
+    db_path = tmp_path / "agentops_smoke_test.db"
+
+    test_engine = create_engine(
+        f"sqlite:///{db_path}",
+        echo=False,
+        connect_args={"check_same_thread": False},
+    )
+
+    SQLModel.metadata.create_all(test_engine)
+
+    monkeypatch.setattr(agent_ops_service, "engine", test_engine)
+    monkeypatch.setattr(ticket_service, "engine", test_engine)
+
+    return test_engine
 
 
 def make_search_result(
@@ -43,7 +66,10 @@ def get_tool_call_by_name(tool_calls: list[dict], tool_name: str) -> dict:
     raise AssertionError(f"tool_call not found: {tool_name}")
 
 
-def test_ticket_agent_preview_confirm_agentops_smoke_flow(monkeypatch):
+def test_ticket_agent_preview_confirm_agentops_smoke_flow(
+    monkeypatch,
+    smoke_test_engine,
+):
     """
     端到端 API smoke test。
 
