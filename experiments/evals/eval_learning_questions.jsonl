@@ -1,0 +1,15 @@
+{"question":"FastAPI 主要用来做什么？","expected_document_id":"doc_fastapi_notes"}
+{"question":"FastAPI 的接口文档在哪里查看？","expected_document_id":"doc_fastapi_notes"}
+{"question":"Dockerfile 的作用是什么？","expected_document_id":"doc_docker_notes"}
+{"question":"Docker Compose 解决什么问题？","expected_document_id":"doc_docker_notes"}
+{"question":"embedding 在 RAG 中有什么作用？","expected_document_id":"doc_embedding_notes"}
+{"question":"为什么语义检索要用向量相似度？","expected_document_id":"doc_embedding_notes"}
+{"question":"RAG 为什么要先检索再回答？","expected_document_id":"doc_rag_notes"}
+{"question":"RAG 为什么需要 chunk？","expected_document_id":"doc_rag_notes"}
+{"question":"SQLModel 和数据库表有什么关系？","expected_document_id":"doc_sqlmodel_notes"}
+{"question":"SQLModel 为什么适合 FastAPI 项目？","expected_document_id":"doc_sqlmodel_notes"}
+{"question": "为什么重启容器后数据还在？", "expected_document_id": "doc_docker_notes"}
+{"question": "接口里要等待外部服务响应时，应该怎么定义处理函数？", "expected_document_id": "doc_fastapi_notes"}
+{"question": "为什么模型回答问题时需要先去查一批外部资料？", "expected_document_id": "doc_rag_notes"}
+{"question": "为什么数据库文件没有随着运行环境删除而消失？", "expected_document_id": "doc_docker_notes"}
+{"question": "为什么系统能判断两段文字语义相近？", "expected_document_id": "doc_embedding_notes"}

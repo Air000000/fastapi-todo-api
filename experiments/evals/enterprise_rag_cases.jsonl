@@ -1,0 +1,30 @@
+{"id":"ent_it_001","question":"VPN 连不上应该先检查什么？","expected_document_id":"doc_vpn_guide","category":"it","tenant_id":"tenant_demo"}
+{"id":"ent_it_002","question":"企业邮箱忘记密码或账号被锁定时应该怎么处理？","expected_document_id":"doc_email_login_faq","category":"it","tenant_id":"tenant_demo"}
+{"id":"ent_it_003","question":"VPN 已经连接成功，但只有某个内部系统打不开，可能是什么原因？","expected_document_id":"doc_vpn_guide","category":"it","tenant_id":"tenant_demo"}
+{"id":"ent_it_004","question":"出差时手机收不到 MFA 推送，应该怎么恢复登录？","expected_document_id":"doc_email_login_faq","category":"it","tenant_id":"tenant_demo"}
+{"id":"ent_it_005","question":"是否可以把自己的 VPN 临时借给外包同事使用？","expected_document_id":"doc_vpn_guide","category":"it","tenant_id":"tenant_demo"}
+{"id":"ent_it_006","question":"更换手机后登录验证失败，需要向 IT 提供哪些信息？","expected_document_id":"doc_email_login_faq","category":"it","tenant_id":"tenant_demo"}
+{"id":"ent_hr_001","question":"请假已经和经理口头说过了，还需要在系统里提交申请吗？","expected_document_id":"doc_leave_policy","category":"hr","tenant_id":"tenant_demo"}
+{"id":"ent_hr_002","question":"新员工入职第一天主要需要完成哪些事项？","expected_document_id":"doc_onboarding_process","category":"hr","tenant_id":"tenant_demo"}
+{"id":"ent_hr_003","question":"病假当天来不及提前申请时应该怎么处理？","expected_document_id":"doc_leave_policy","category":"hr","tenant_id":"tenant_demo"}
+{"id":"ent_hr_004","question":"新员工入职前需要完成哪些账号和设备准备？","expected_document_id":"doc_onboarding_process","category":"hr","tenant_id":"tenant_demo"}
+{"id":"ent_hr_005","question":"休假前如果自己负责审批任务，应该如何安排代理人？","expected_document_id":"doc_leave_policy","category":"hr","tenant_id":"tenant_demo"}
+{"id":"ent_hr_006","question":"新员工前 90 天应该如何和经理同步目标与反馈？","expected_document_id":"doc_onboarding_process","category":"hr","tenant_id":"tenant_demo"}
+{"id":"ent_finance_001","question":"差旅报销需要准备哪些发票和凭证材料？","expected_document_id":"doc_travel_reimbursement","category":"finance","tenant_id":"tenant_demo"}
+{"id":"ent_finance_002","question":"供应商发票被财务退回通常有哪些原因？","expected_document_id":"doc_invoice_rules","category":"finance","tenant_id":"tenant_demo"}
+{"id":"ent_finance_003","question":"出差前没有提前审批，费用还能报销吗？","expected_document_id":"doc_travel_reimbursement","category":"finance","tenant_id":"tenant_demo"}
+{"id":"ent_finance_004","question":"供应商付款前为什么需要验收记录？","expected_document_id":"doc_invoice_rules","category":"finance","tenant_id":"tenant_demo"}
+{"id":"ent_finance_005","question":"客户已经提供住宿时，员工还能重复报销酒店费用吗？","expected_document_id":"doc_travel_reimbursement","category":"finance","tenant_id":"tenant_demo"}
+{"id":"ent_finance_006","question":"发票金额和合同金额不一致时，财务为什么会退回？","expected_document_id":"doc_invoice_rules","category":"finance","tenant_id":"tenant_demo"}
+{"id":"ent_admin_001","question":"会议室预订后临时不用了应该怎么处理？","expected_document_id":"doc_meeting_room","category":"admin","tenant_id":"tenant_demo"}
+{"id":"ent_admin_002","question":"借用办公设备时需要登记哪些信息，归还时要注意什么？","expected_document_id":"doc_device_borrowing","category":"admin","tenant_id":"tenant_demo"}
+{"id":"ent_admin_003","question":"会议开始后长时间没人使用会议室，会发生什么？","expected_document_id":"doc_meeting_room","category":"admin","tenant_id":"tenant_demo"}
+{"id":"ent_admin_004","question":"借用设备带离办公区时需要特别注意什么？","expected_document_id":"doc_device_borrowing","category":"admin","tenant_id":"tenant_demo"}
+{"id":"ent_admin_005","question":"会议室可以长期堆放活动物料或快递箱吗？","expected_document_id":"doc_meeting_room","category":"admin","tenant_id":"tenant_demo"}
+{"id":"ent_admin_006","question":"借用设备损坏后为什么不能自己找外部维修点？","expected_document_id":"doc_device_borrowing","category":"admin","tenant_id":"tenant_demo"}
+{"id":"ent_security_001","question":"员工访问内部数据时为什么要遵循最小权限原则？","expected_document_id":"doc_data_access_policy","category":"security","tenant_id":"tenant_demo"}
+{"id":"ent_security_002","question":"外包人员或供应商可以多人共用一个账号吗？","expected_document_id":"doc_outsource_account","category":"security","tenant_id":"tenant_demo"}
+{"id":"ent_security_003","question":"只需要查看汇总指标时，能不能申请明细数据权限？","expected_document_id":"doc_data_access_policy","category":"security","tenant_id":"tenant_demo"}
+{"id":"ent_security_004","question":"外部账号到期后是否应该默认长期保留？","expected_document_id":"doc_outsource_account","category":"security","tenant_id":"tenant_demo"}
+{"id":"ent_security_005","question":"可以把客户数据上传到未经批准的 AI 工具里做总结吗？","expected_document_id":"doc_data_access_policy","category":"security","tenant_id":"tenant_demo"}
+{"id":"ent_security_006","question":"供应商人员离开项目后，内部负责人需要做什么？","expected_document_id":"doc_outsource_account","category":"security","tenant_id":"tenant_demo"}
