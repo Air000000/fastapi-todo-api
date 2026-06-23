@@ -235,6 +235,93 @@ def test_create_and_update_tool_call(agent_ops_test_engine):
     assert tool_calls[0].id == tool_call.id
 
 
+def test_list_tool_calls_by_run_with_filters(agent_ops_test_engine):
+    agent_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="VPN 连不上",
+            category="it",
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=agent_run.id,
+            tenant_id="tenant_demo",
+            tool_name="search_kb",
+            status="success",
+            tool_input_json='{"query":"VPN 连不上"}',
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=agent_run.id,
+            tenant_id="tenant_demo",
+            tool_name="classify_ticket",
+            status="failed",
+            error_type="classify_ticket_failed",
+            error_message="classification failed",
+            tool_input_json='{"message":"VPN 连不上"}',
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=agent_run.id,
+            tenant_id="tenant_demo",
+            tool_name="create_ticket",
+            status="failed",
+            error_type="create_ticket_failed",
+            error_message="create ticket failed",
+            tool_input_json='{"title":"VPN 连不上"}',
+        )
+    )
+
+    failed_tool_calls = agent_ops_service.list_tool_calls_by_run(
+        agent_run_id=agent_run.id,
+        tenant_id="tenant_demo",
+        status="failed",
+    )
+
+    assert len(failed_tool_calls) == 2
+    assert {tool_call.status for tool_call in failed_tool_calls} == {"failed"}
+
+    search_kb_tool_calls = agent_ops_service.list_tool_calls_by_run(
+        agent_run_id=agent_run.id,
+        tenant_id="tenant_demo",
+        tool_name="search_kb",
+    )
+
+    assert len(search_kb_tool_calls) == 1
+    assert search_kb_tool_calls[0].tool_name == "search_kb"
+    assert search_kb_tool_calls[0].status == "success"
+
+    create_ticket_failed_tool_calls = agent_ops_service.list_tool_calls_by_run(
+        agent_run_id=agent_run.id,
+        tenant_id="tenant_demo",
+        error_type="create_ticket_failed",
+    )
+
+    assert len(create_ticket_failed_tool_calls) == 1
+    assert create_ticket_failed_tool_calls[0].tool_name == "create_ticket"
+    assert create_ticket_failed_tool_calls[0].error_type == "create_ticket_failed"
+
+    combined_filtered_tool_calls = agent_ops_service.list_tool_calls_by_run(
+        agent_run_id=agent_run.id,
+        tenant_id="tenant_demo",
+        status="failed",
+        tool_name="create_ticket",
+        error_type="create_ticket_failed",
+    )
+
+    assert len(combined_filtered_tool_calls) == 1
+    assert combined_filtered_tool_calls[0].tool_name == "create_ticket"
+    assert combined_filtered_tool_calls[0].status == "failed"
+    assert combined_filtered_tool_calls[0].error_type == "create_ticket_failed"
+
+
 def test_create_tool_call_with_missing_agent_run_should_return_404(agent_ops_test_engine):
     """
     测试尝试创建一个 tool call，但关联的 agent run 不存在，应该返回 404 错误。
