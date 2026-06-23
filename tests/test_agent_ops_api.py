@@ -352,6 +352,9 @@ def test_get_agent_ops_metrics_summary(monkeypatch):
             pending_tool_calls=1,
             successful_tool_calls=1,
             failed_tool_calls=1,
+            tool_call_error_types={
+                "create_ticket_failed": 1,
+            },
             total_approval_requests=4,
             pending_approval_requests=1,
             approved_approval_requests=1,
@@ -383,6 +386,9 @@ def test_get_agent_ops_metrics_summary(monkeypatch):
     assert data["pending_tool_calls"] == 1
     assert data["successful_tool_calls"] == 1
     assert data["failed_tool_calls"] == 1
+    assert data["tool_call_error_types"] == {
+        "create_ticket_failed": 1,
+    }
 
     assert data["total_approval_requests"] == 4
     assert data["pending_approval_requests"] == 1

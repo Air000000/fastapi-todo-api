@@ -145,6 +145,7 @@ class AgentOpsMetricsSummaryResponse(BaseModel):
     pending_tool_calls: int
     successful_tool_calls: int
     failed_tool_calls: int
+    tool_call_error_types: dict[str, int] = Field(default_factory=dict)
 
     total_approval_requests: int
     pending_approval_requests: int

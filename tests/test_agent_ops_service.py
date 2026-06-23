@@ -463,6 +463,7 @@ def test_get_agent_ops_metrics_summary_counts_by_tenant(agent_ops_test_engine):
             tenant_id="tenant_demo",
             tool_name="create_ticket",
             status="failed",
+            error_type="create_ticket_failed",
             error_message="create ticket failed",
         )
     )
@@ -548,6 +549,9 @@ def test_get_agent_ops_metrics_summary_counts_by_tenant(agent_ops_test_engine):
     assert summary.pending_tool_calls == 1
     assert summary.successful_tool_calls == 1
     assert summary.failed_tool_calls == 1
+    assert summary.tool_call_error_types == {
+        "create_ticket_failed": 1,
+    }
 
     assert summary.total_approval_requests == 4
     assert summary.pending_approval_requests == 1

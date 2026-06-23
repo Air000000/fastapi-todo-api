@@ -118,6 +118,7 @@ def create_tool_call(tool_call_create: ToolCallCreate) -> ToolCall:
         tool_input_json=tool_call_create.tool_input_json,
         tool_output_json=tool_call_create.tool_output_json,
         status=tool_call_create.status,
+        error_type=tool_call_create.error_type,
         error_message=tool_call_create.error_message,
     )
 
@@ -282,6 +283,23 @@ def count_status(items, status: str) -> int:
     return sum(1 for item in items if item.status == status)
 
 
+def count_tool_call_error_types(tool_calls: list[ToolCall]) -> dict[str, int]:
+    error_types: dict[str, int] = {}
+
+    for tool_call in tool_calls:
+        if tool_call.status != "failed":
+            continue
+
+        if not tool_call.error_type:
+            continue
+
+        error_types[tool_call.error_type] = (
+            error_types.get(tool_call.error_type, 0) + 1
+        )
+
+    return error_types
+
+
 def get_agent_ops_metrics_summary(
     tenant_id: str,
 ) -> AgentOpsMetricsSummaryResponse:
@@ -323,6 +341,7 @@ def get_agent_ops_metrics_summary(
         pending_tool_calls=count_status(tool_calls, "pending"),
         successful_tool_calls=count_status(tool_calls, "success"),
         failed_tool_calls=count_status(tool_calls, "failed"),
+        tool_call_error_types=count_tool_call_error_types(tool_calls),
         total_approval_requests=len(approval_requests),
         pending_approval_requests=count_status(approval_requests, "pending"),
         approved_approval_requests=count_status(approval_requests, "approved"),
