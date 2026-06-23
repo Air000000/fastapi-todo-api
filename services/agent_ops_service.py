@@ -145,6 +145,9 @@ def get_tool_call(
 def list_tool_calls_by_run(
     agent_run_id: int,
     tenant_id: str,
+    status: str | None = None,
+    tool_name: str | None = None,
+    error_type: str | None = None,
 ) -> list[ToolCall]:
     # 确保 run 存在且属于当前 tenant。
     get_agent_run(
@@ -158,6 +161,15 @@ def list_tool_calls_by_run(
             .where(ToolCall.tenant_id == tenant_id)
             .where(ToolCall.agent_run_id == agent_run_id)
         )
+
+        if status is not None:
+            statement = statement.where(ToolCall.status == status)
+
+        if tool_name is not None:
+            statement = statement.where(ToolCall.tool_name == tool_name)
+
+        if error_type is not None:
+            statement = statement.where(ToolCall.error_type == error_type)
 
         tool_calls = session.exec(statement).all()
         return list(tool_calls)

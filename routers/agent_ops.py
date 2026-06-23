@@ -56,10 +56,16 @@ def get_agent_run(agent_run_id: int) -> AgentRunResponse:
 )
 def list_tool_calls_by_run(
     agent_run_id: int,
+    status: str | None = None,
+    tool_name: str | None = None,
+    error_type: str | None = None,
 ) -> list[ToolCallResponse]:
     tool_calls = list_tool_calls_by_run_service(
         agent_run_id=agent_run_id,
         tenant_id=MOCK_TENANT_ID,
+        status=status,
+        tool_name=tool_name,
+        error_type=error_type,
     )
 
     return [

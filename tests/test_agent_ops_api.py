@@ -126,9 +126,15 @@ def test_list_tool_calls_by_run(monkeypatch):
     def fake_list_tool_calls_by_run_service(
         agent_run_id: int,
         tenant_id: str,
+        status: str | None = None,
+        tool_name: str | None = None,
+        error_type: str | None = None,
     ):
         calls["agent_run_id"] = agent_run_id
         calls["tenant_id"] = tenant_id
+        calls["status"] = status
+        calls["tool_name"] = tool_name
+        calls["error_type"] = error_type
 
         return [
             SimpleNamespace(
@@ -160,6 +166,9 @@ def test_list_tool_calls_by_run(monkeypatch):
 
     assert calls["agent_run_id"] == 1
     assert calls["tenant_id"] == "tenant_demo"
+    assert calls["status"] is None
+    assert calls["tool_name"] is None
+    assert calls["error_type"] is None
 
     assert len(data) == 1
     assert data[0]["id"] == 300
@@ -395,3 +404,67 @@ def test_get_agent_ops_metrics_summary(monkeypatch):
     assert data["approved_approval_requests"] == 1
     assert data["rejected_approval_requests"] == 1
     assert data["cancelled_approval_requests"] == 1
+
+
+def test_list_tool_calls_by_run_with_filters(monkeypatch):
+    calls = {}
+
+    def fake_list_tool_calls_by_run_service(
+        agent_run_id: int,
+        tenant_id: str,
+        status: str | None = None,
+        tool_name: str | None = None,
+        error_type: str | None = None,
+    ):
+        calls["agent_run_id"] = agent_run_id
+        calls["tenant_id"] = tenant_id
+        calls["status"] = status
+        calls["tool_name"] = tool_name
+        calls["error_type"] = error_type
+
+        return [
+            SimpleNamespace(
+                id=301,
+                agent_run_id=agent_run_id,
+                tenant_id=tenant_id,
+                tool_name="create_ticket",
+                tool_input_json='{"title":"VPN 连不上"}',
+                tool_output_json=None,
+                status="failed",
+                error_type="create_ticket_failed",
+                error_message="create ticket failed",
+                created_at=datetime(2026, 1, 1, 10, 0, 10),
+                finished_at=datetime(2026, 1, 1, 10, 0, 20),
+            )
+        ]
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "list_tool_calls_by_run_service",
+        fake_list_tool_calls_by_run_service,
+    )
+
+    response = client.get(
+        "/agent-ops/runs/1/tool-calls",
+        params={
+            "status": "failed",
+            "tool_name": "create_ticket",
+            "error_type": "create_ticket_failed",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["agent_run_id"] == 1
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["status"] == "failed"
+    assert calls["tool_name"] == "create_ticket"
+    assert calls["error_type"] == "create_ticket_failed"
+
+    assert len(data) == 1
+    assert data[0]["id"] == 301
+    assert data[0]["status"] == "failed"
+    assert data[0]["tool_name"] == "create_ticket"
+    assert data[0]["error_type"] == "create_ticket_failed"
