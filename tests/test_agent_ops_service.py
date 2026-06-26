@@ -322,6 +322,114 @@ def test_list_tool_calls_by_run_with_filters(agent_ops_test_engine):
     assert combined_filtered_tool_calls[0].error_type == "create_ticket_failed"
 
 
+def test_list_tool_calls_with_global_filters(agent_ops_test_engine):
+    agent_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="VPN 连不上",
+            category="it",
+        )
+    )
+
+    other_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="邮箱无法登录",
+            category="it",
+        )
+    )
+
+    other_tenant_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="other_tenant",
+            user_id="user_demo",
+            input_message="其他租户问题",
+            category="it",
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=agent_run.id,
+            tenant_id="tenant_demo",
+            tool_name="search_kb",
+            status="success",
+            tool_input_json='{"query":"VPN 连不上"}',
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=agent_run.id,
+            tenant_id="tenant_demo",
+            tool_name="create_ticket",
+            status="failed",
+            error_type="create_ticket_failed",
+            error_message="create ticket failed",
+            tool_input_json='{"title":"VPN 连不上"}',
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=other_run.id,
+            tenant_id="tenant_demo",
+            tool_name="classify_ticket",
+            status="failed",
+            error_type="classify_ticket_failed",
+            error_message="classification failed",
+            tool_input_json='{"message":"邮箱无法登录"}',
+        )
+    )
+
+    agent_ops_service.create_tool_call(
+        ToolCallCreate(
+            agent_run_id=other_tenant_run.id,
+            tenant_id="other_tenant",
+            tool_name="create_ticket",
+            status="failed",
+            error_type="create_ticket_failed",
+            error_message="other tenant failed",
+            tool_input_json='{"title":"其他租户问题"}',
+        )
+    )
+
+    failed_tool_calls = agent_ops_service.list_tool_calls(
+        tenant_id="tenant_demo",
+        status="failed",
+    )
+
+    assert len(failed_tool_calls) == 2
+    assert {tool_call.tenant_id for tool_call in failed_tool_calls} == {
+        "tenant_demo"
+    }
+    assert {tool_call.status for tool_call in failed_tool_calls} == {"failed"}
+
+    create_ticket_failed_tool_calls = agent_ops_service.list_tool_calls(
+        tenant_id="tenant_demo",
+        tool_name="create_ticket",
+        error_type="create_ticket_failed",
+    )
+
+    assert len(create_ticket_failed_tool_calls) == 1
+    assert create_ticket_failed_tool_calls[0].agent_run_id == agent_run.id
+    assert create_ticket_failed_tool_calls[0].tool_name == "create_ticket"
+    assert create_ticket_failed_tool_calls[0].error_type == "create_ticket_failed"
+
+    run_filtered_tool_calls = agent_ops_service.list_tool_calls(
+        tenant_id="tenant_demo",
+        agent_run_id=other_run.id,
+        status="failed",
+    )
+
+    assert len(run_filtered_tool_calls) == 1
+    assert run_filtered_tool_calls[0].agent_run_id == other_run.id
+    assert run_filtered_tool_calls[0].tool_name == "classify_ticket"
+    assert run_filtered_tool_calls[0].error_type == "classify_ticket_failed"
+
+
 def test_create_tool_call_with_missing_agent_run_should_return_404(agent_ops_test_engine):
     """
     测试尝试创建一个 tool call，但关联的 agent run 不存在，应该返回 404 错误。

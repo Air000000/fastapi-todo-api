@@ -175,6 +175,32 @@ def list_tool_calls_by_run(
         return list(tool_calls)
 
 
+def list_tool_calls(
+    tenant_id: str,
+    agent_run_id: int | None = None,
+    status: str | None = None,
+    tool_name: str | None = None,
+    error_type: str | None = None,
+) -> list[ToolCall]:
+    with Session(engine) as session:
+        statement = select(ToolCall).where(ToolCall.tenant_id == tenant_id)
+
+        if agent_run_id is not None:
+            statement = statement.where(ToolCall.agent_run_id == agent_run_id)
+
+        if status is not None:
+            statement = statement.where(ToolCall.status == status)
+
+        if tool_name is not None:
+            statement = statement.where(ToolCall.tool_name == tool_name)
+
+        if error_type is not None:
+            statement = statement.where(ToolCall.error_type == error_type)
+
+        tool_calls = session.exec(statement).all()
+        return list(tool_calls)
+
+
 def update_tool_call(
     tool_call_id: int,
     tenant_id: str,

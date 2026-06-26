@@ -468,3 +468,69 @@ def test_list_tool_calls_by_run_with_filters(monkeypatch):
     assert data[0]["status"] == "failed"
     assert data[0]["tool_name"] == "create_ticket"
     assert data[0]["error_type"] == "create_ticket_failed"
+
+
+def test_list_tool_calls_with_filters(monkeypatch):
+    calls = {}
+
+    def fake_list_tool_calls_service(
+        tenant_id: str,
+        agent_run_id: int | None = None,
+        status: str | None = None,
+        tool_name: str | None = None,
+        error_type: str | None = None,
+    ):
+        calls["tenant_id"] = tenant_id
+        calls["agent_run_id"] = agent_run_id
+        calls["status"] = status
+        calls["tool_name"] = tool_name
+        calls["error_type"] = error_type
+
+        return [
+            SimpleNamespace(
+                id=301,
+                agent_run_id=1,
+                tenant_id=tenant_id,
+                tool_name="create_ticket",
+                tool_input_json='{"title":"VPN 连不上"}',
+                tool_output_json=None,
+                status="failed",
+                error_type="create_ticket_failed",
+                error_message="create ticket failed",
+                created_at=datetime(2026, 1, 1, 10, 0, 10),
+                finished_at=datetime(2026, 1, 1, 10, 0, 20),
+            )
+        ]
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "list_tool_calls_service",
+        fake_list_tool_calls_service,
+    )
+
+    response = client.get(
+        "/agent-ops/tool-calls",
+        params={
+            "agent_run_id": 1,
+            "status": "failed",
+            "tool_name": "create_ticket",
+            "error_type": "create_ticket_failed",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["agent_run_id"] == 1
+    assert calls["status"] == "failed"
+    assert calls["tool_name"] == "create_ticket"
+    assert calls["error_type"] == "create_ticket_failed"
+
+    assert len(data) == 1
+    assert data[0]["id"] == 301
+    assert data[0]["agent_run_id"] == 1
+    assert data[0]["tool_name"] == "create_ticket"
+    assert data[0]["status"] == "failed"
+    assert data[0]["error_type"] == "create_ticket_failed"
