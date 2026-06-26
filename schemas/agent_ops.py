@@ -182,6 +182,14 @@ class RetrievalMetricsSummaryResponse(BaseModel):
     category_counts: dict[str, int]
 
 
+class RetrievalSourceMetricResponse(BaseModel):
+    document_id: str
+    title: str | None = None
+    source_path: str | None = None
+    retrieval_count: int
+    average_distance: float | None = None
+
+
 class AgentOpsMetricsSummaryResponse(BaseModel):
     total_agent_runs: int
     running_agent_runs: int

@@ -1107,4 +1107,99 @@ def test_get_retrieval_metrics_summary(agent_ops_test_engine):
     assert it_summary.category_counts == {
         "it": 2,
     }
-    
+
+
+def test_get_retrieval_source_metrics(agent_ops_test_engine):
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="search",
+            query_text="VPN 连不上怎么办？",
+            top_k=3,
+            category="it",
+            retrieval_status="ok",
+            total_hits=2,
+            source_documents_json=(
+                "["
+                '{"document_id":"doc_vpn","title":"VPN 手册",'
+                '"source_path":"docs/it/vpn.md","distance":0.3},'
+                '{"document_id":"doc_email","title":"邮箱手册",'
+                '"source_path":"docs/it/email.md","distance":0.6}'
+                "]"
+            ),
+            latency_ms=100,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="ask",
+            query_text="VPN 配置方法？",
+            top_k=3,
+            category="it",
+            retrieval_status="ok",
+            total_hits=1,
+            source_documents_json=(
+                "["
+                '{"document_id":"doc_vpn","title":"VPN 手册",'
+                '"source_path":"docs/it/vpn.md","distance":0.4}'
+                "]"
+            ),
+            latency_ms=120,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="other_tenant",
+            endpoint="search",
+            query_text="其他租户 VPN 问题",
+            top_k=3,
+            category="it",
+            retrieval_status="ok",
+            total_hits=1,
+            source_documents_json=(
+                "["
+                '{"document_id":"doc_vpn","title":"VPN 手册",'
+                '"source_path":"docs/it/vpn.md","distance":0.1}'
+                "]"
+            ),
+            latency_ms=80,
+        )
+    )
+
+    metrics = agent_ops_service.get_retrieval_source_metrics(
+        tenant_id="tenant_demo",
+        limit=10,
+    )
+
+    assert len(metrics) == 2
+    assert metrics[0].document_id == "doc_vpn"
+    assert metrics[0].title == "VPN 手册"
+    assert metrics[0].source_path == "docs/it/vpn.md"
+    assert metrics[0].retrieval_count == 2
+    assert metrics[0].average_distance == 0.35
+
+    assert metrics[1].document_id == "doc_email"
+    assert metrics[1].retrieval_count == 1
+    assert metrics[1].average_distance == 0.6
+
+    ask_metrics = agent_ops_service.get_retrieval_source_metrics(
+        tenant_id="tenant_demo",
+        endpoint="ask",
+        limit=10,
+    )
+
+    assert len(ask_metrics) == 1
+    assert ask_metrics[0].document_id == "doc_vpn"
+    assert ask_metrics[0].retrieval_count == 1
+    assert ask_metrics[0].average_distance == 0.4
+
+    limited_metrics = agent_ops_service.get_retrieval_source_metrics(
+        tenant_id="tenant_demo",
+        limit=1,
+    )
+
+    assert len(limited_metrics) == 1
+    assert limited_metrics[0].document_id == "doc_vpn"

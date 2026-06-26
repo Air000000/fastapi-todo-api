@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -15,6 +16,7 @@ from schemas.agent_ops import (
     ApprovalRequestUpdate,
     RetrievalLogCreate,
     RetrievalMetricsSummaryResponse,
+    RetrievalSourceMetricResponse,
     ToolCallCreate,
     ToolCallUpdate,
 )
@@ -624,3 +626,90 @@ def get_retrieval_metrics_summary(
             "category",
         ),
     )
+
+
+def get_retrieval_source_metrics(
+    tenant_id: str,
+    endpoint: str | None = None,
+    category: str | None = None,
+    limit: int = 10,
+) -> list[RetrievalSourceMetricResponse]:
+    with Session(engine) as session:
+        statement = select(RetrievalLog).where(
+            RetrievalLog.tenant_id == tenant_id
+        )
+
+        if endpoint is not None:
+            statement = statement.where(RetrievalLog.endpoint == endpoint)
+
+        if category is not None:
+            statement = statement.where(RetrievalLog.category == category)
+
+        retrieval_logs = list(session.exec(statement).all())
+
+    source_metrics: dict[str, dict] = {}
+
+    for retrieval_log in retrieval_logs:
+        if not retrieval_log.source_documents_json:
+            continue
+
+        try:
+            source_documents = json.loads(
+                retrieval_log.source_documents_json
+            )
+        except json.JSONDecodeError:
+            continue
+
+        if not isinstance(source_documents, list):
+            continue
+
+        for source_document in source_documents:
+            if not isinstance(source_document, dict):
+                continue
+
+            document_id = source_document.get("document_id")
+
+            if not document_id:
+                continue
+
+            metric = source_metrics.setdefault(
+                document_id,
+                {
+                    "document_id": document_id,
+                    "title": source_document.get("title"),
+                    "source_path": source_document.get("source_path"),
+                    "retrieval_count": 0,
+                    "distances": [],
+                },
+            )
+
+            metric["retrieval_count"] += 1
+
+            distance = source_document.get("distance")
+
+            if isinstance(distance, (int, float)):
+                metric["distances"].append(distance)
+
+    results: list[RetrievalSourceMetricResponse] = []
+
+    for metric in source_metrics.values():
+        results.append(
+            RetrievalSourceMetricResponse(
+                document_id=metric["document_id"],
+                title=metric["title"],
+                source_path=metric["source_path"],
+                retrieval_count=metric["retrieval_count"],
+                average_distance=average_optional_numbers(
+                    metric["distances"]
+                ),
+            )
+        )
+
+    return sorted(
+        results,
+        key=lambda item: (
+            item.retrieval_count,
+            -(item.average_distance or 0),
+        ),
+        reverse=True,
+    )[:limit]

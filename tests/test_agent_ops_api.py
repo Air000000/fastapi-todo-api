@@ -902,3 +902,67 @@ def test_get_retrieval_metrics_summary_rejects_invalid_endpoint():
     )
 
     assert response.status_code == 422
+
+
+def test_get_retrieval_source_metrics(monkeypatch):
+    calls = {}
+
+    def fake_get_retrieval_source_metrics_service(
+        tenant_id: str,
+        endpoint: str | None = None,
+        category: str | None = None,
+        limit: int = 10,
+    ):
+        calls["tenant_id"] = tenant_id
+        calls["endpoint"] = endpoint
+        calls["category"] = category
+        calls["limit"] = limit
+
+        return [
+            SimpleNamespace(
+                document_id="doc_vpn",
+                title="VPN 手册",
+                source_path="docs/it/vpn.md",
+                retrieval_count=2,
+                average_distance=0.35,
+            )
+        ]
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "get_retrieval_source_metrics_service",
+        fake_get_retrieval_source_metrics_service,
+    )
+
+    response = client.get(
+        "/agent-ops/metrics/retrieval/sources",
+        params={
+            "endpoint": "ask",
+            "category": "it",
+            "limit": 5,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["endpoint"] == "ask"
+    assert calls["category"] == "it"
+    assert calls["limit"] == 5
+
+    assert len(data) == 1
+    assert data[0]["document_id"] == "doc_vpn"
+    assert data[0]["title"] == "VPN 手册"
+    assert data[0]["source_path"] == "docs/it/vpn.md"
+    assert data[0]["retrieval_count"] == 2
+    assert data[0]["average_distance"] == 0.35
+
+def test_get_retrieval_source_metrics_rejects_invalid_endpoint():
+    response = client.get(
+        "/agent-ops/metrics/retrieval/sources",
+        params={"endpoint": "chat"},
+    )
+
+    assert response.status_code == 422
