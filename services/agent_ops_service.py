@@ -65,6 +65,8 @@ def list_agent_runs(
     tenant_id: str,
     status: str | None = None,
     agent_name: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
 ) -> list[AgentRun]:
     with Session(engine) as session:
         statement = select(AgentRun).where(AgentRun.tenant_id == tenant_id)
@@ -75,6 +77,12 @@ def list_agent_runs(
         if agent_name is not None:
             statement = statement.where(AgentRun.agent_name == agent_name)
 
+        statement = (
+            statement
+            .order_by(AgentRun.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         agent_runs = session.exec(statement).all()
         return list(agent_runs)
 
@@ -181,6 +189,8 @@ def list_tool_calls(
     status: str | None = None,
     tool_name: str | None = None,
     error_type: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
 ) -> list[ToolCall]:
     with Session(engine) as session:
         statement = select(ToolCall).where(ToolCall.tenant_id == tenant_id)
@@ -196,6 +206,13 @@ def list_tool_calls(
 
         if error_type is not None:
             statement = statement.where(ToolCall.error_type == error_type)
+
+        statement = (
+            statement
+            .order_by(ToolCall.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
 
         tool_calls = session.exec(statement).all()
         return list(tool_calls)
@@ -294,6 +311,8 @@ def list_approval_requests(
     agent_run_id: int | None = None,
     status: str | None = None,
     approval_type: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
 ) -> list[ApprovalRequest]:
     with Session(engine) as session:
         statement = select(ApprovalRequest).where(
@@ -313,6 +332,13 @@ def list_approval_requests(
                 ApprovalRequest.approval_type == approval_type
             )
 
+        statement = (
+            statement
+            .order_by(ApprovalRequest.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        
         approval_requests = session.exec(statement).all()
         return list(approval_requests)
 

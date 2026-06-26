@@ -17,10 +17,14 @@ def test_list_agent_runs(monkeypatch):
         tenant_id: str,
         status: str | None = None,
         agent_name: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
     ):
         calls["tenant_id"] = tenant_id
         calls["status"] = status
         calls["agent_name"] = agent_name
+        calls["limit"] = limit
+        calls["offset"] = offset
 
         return [
             SimpleNamespace(
@@ -50,6 +54,8 @@ def test_list_agent_runs(monkeypatch):
         params={
             "status": "completed",
             "agent_name": "ticket_agent",
+            "limit": 20,
+            "offset": 0,
         },
     )
 
@@ -60,6 +66,8 @@ def test_list_agent_runs(monkeypatch):
     assert calls["tenant_id"] == "tenant_demo"
     assert calls["status"] == "completed"
     assert calls["agent_name"] == "ticket_agent"
+    assert calls["limit"] == 20
+    assert calls["offset"] == 0
 
     assert len(data) == 1
     assert data[0]["id"] == 1
@@ -479,12 +487,16 @@ def test_list_tool_calls_with_filters(monkeypatch):
         status: str | None = None,
         tool_name: str | None = None,
         error_type: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
     ):
         calls["tenant_id"] = tenant_id
         calls["agent_run_id"] = agent_run_id
         calls["status"] = status
         calls["tool_name"] = tool_name
         calls["error_type"] = error_type
+        calls["limit"] = limit
+        calls["offset"] = offset
 
         return [
             SimpleNamespace(
@@ -515,6 +527,8 @@ def test_list_tool_calls_with_filters(monkeypatch):
             "status": "failed",
             "tool_name": "create_ticket",
             "error_type": "create_ticket_failed",
+            "limit": 20,
+            "offset": 0,
         },
     )
 
@@ -527,6 +541,8 @@ def test_list_tool_calls_with_filters(monkeypatch):
     assert calls["status"] == "failed"
     assert calls["tool_name"] == "create_ticket"
     assert calls["error_type"] == "create_ticket_failed"
+    assert calls["limit"] == 20
+    assert calls["offset"] == 0
 
     assert len(data) == 1
     assert data[0]["id"] == 301
@@ -544,11 +560,15 @@ def test_list_approval_requests_with_filters(monkeypatch):
         agent_run_id: int | None = None,
         status: str | None = None,
         approval_type: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
     ):
         calls["tenant_id"] = tenant_id
         calls["agent_run_id"] = agent_run_id
         calls["status"] = status
         calls["approval_type"] = approval_type
+        calls["limit"] = limit
+        calls["offset"] = offset
 
         return [
             SimpleNamespace(
@@ -577,6 +597,8 @@ def test_list_approval_requests_with_filters(monkeypatch):
             "agent_run_id": 1,
             "status": "pending",
             "approval_type": "ticket_creation",
+            "limit": 20,
+            "offset": 0,
         },
     )
 
@@ -588,6 +610,8 @@ def test_list_approval_requests_with_filters(monkeypatch):
     assert calls["agent_run_id"] == 1
     assert calls["status"] == "pending"
     assert calls["approval_type"] == "ticket_creation"
+    assert calls["limit"] == 20
+    assert calls["offset"] == 0
 
     assert len(data) == 1
     assert data[0]["id"] == 401

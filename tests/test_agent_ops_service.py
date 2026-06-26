@@ -430,6 +430,17 @@ def test_list_tool_calls_with_global_filters(agent_ops_test_engine):
     assert run_filtered_tool_calls[0].error_type == "classify_ticket_failed"
 
 
+    paginated_tool_calls = agent_ops_service.list_tool_calls(
+        tenant_id="tenant_demo",
+        status="failed",
+        limit=1,
+        offset=1,
+    )
+
+    assert len(paginated_tool_calls) == 1
+    assert paginated_tool_calls[0].tenant_id == "tenant_demo"
+    assert paginated_tool_calls[0].status == "failed"
+
 def test_create_tool_call_with_missing_agent_run_should_return_404(agent_ops_test_engine):
     """
     测试尝试创建一个 tool call，但关联的 agent run 不存在，应该返回 404 错误。
@@ -871,3 +882,64 @@ def test_list_approval_requests_with_global_filters(agent_ops_test_engine):
     assert combined_filtered_approval_requests[0].agent_run_id == other_run.id
     assert combined_filtered_approval_requests[0].status == "rejected"
     assert combined_filtered_approval_requests[0].approval_type == "ticket_creation"
+
+
+    paginated_approval_requests = agent_ops_service.list_approval_requests(
+        tenant_id="tenant_demo",
+        status="pending",
+        limit=1,
+        offset=1,
+    )
+
+    assert len(paginated_approval_requests) == 1
+    assert paginated_approval_requests[0].tenant_id == "tenant_demo"
+    assert paginated_approval_requests[0].status == "pending"
+    
+def test_list_agent_runs_with_pagination(agent_ops_test_engine):
+    first_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="第一个请求",
+            category="it",
+        )
+    )
+
+    second_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="第二个请求",
+            category="it",
+        )
+    )
+
+    third_run = agent_ops_service.create_agent_run(
+        AgentRunCreate(
+            tenant_id="tenant_demo",
+            user_id="user_demo",
+            input_message="第三个请求",
+            category="it",
+        )
+    )
+
+    first_page = agent_ops_service.list_agent_runs(
+        tenant_id="tenant_demo",
+        limit=2,
+        offset=0,
+    )
+
+    second_page = agent_ops_service.list_agent_runs(
+        tenant_id="tenant_demo",
+        limit=2,
+        offset=2,
+    )
+
+    assert len(first_page) == 2
+    assert len(second_page) == 1
+
+    assert [agent_run.id for agent_run in first_page] == [
+        third_run.id,
+        second_run.id,
+    ]
+    assert [agent_run.id for agent_run in second_page] == [first_run.id]

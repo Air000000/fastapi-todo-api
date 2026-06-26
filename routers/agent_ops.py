@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from schemas.agent_ops import (
     AgentOpsMetricsSummaryResponse,
@@ -29,11 +29,15 @@ MOCK_USER_ID = "user_demo"
 def list_agent_runs(
     status: str | None = None,
     agent_name: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[AgentRunResponse]:
     agent_runs = list_agent_runs_service(
         tenant_id=MOCK_TENANT_ID,
         status=status,
         agent_name=agent_name,
+        limit=limit,
+        offset=offset,
     )
 
     return [
@@ -58,6 +62,8 @@ def list_tool_calls(
     status: str | None = None,
     tool_name: str | None = None,
     error_type: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[ToolCallResponse]:
     tool_calls = list_tool_calls_service(
         tenant_id=MOCK_TENANT_ID,
@@ -65,6 +71,8 @@ def list_tool_calls(
         status=status,
         tool_name=tool_name,
         error_type=error_type,
+        limit=limit,
+        offset=offset,
     )
 
     return [
@@ -105,12 +113,16 @@ def list_approval_requests(
     agent_run_id: int | None = None,
     status: str | None = None,
     approval_type: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[ApprovalRequestResponse]:
     approval_requests = list_approval_requests_service(
         tenant_id=MOCK_TENANT_ID,
         agent_run_id=agent_run_id,
         status=status,
         approval_type=approval_type,
+        limit=limit,
+        offset=offset,
     )
 
     return [
