@@ -159,6 +159,8 @@ def rag_search(request: RagSearchRequest):
 
 @router.post("/ask", response_model=RagAskResponse)
 def rag_ask(request: RagAskRequest):
+    started_at = time.perf_counter()
+
     try:
         rag_result = answer_question(
             question=request.question,
@@ -166,14 +168,30 @@ def rag_ask(request: RagAskRequest):
             max_distance=request.max_distance,
             tenant_id=MOCK_TENANT_ID,
             category=request.category,
-        )   
+        )
     except Exception as exc:
+        latency_ms = int((time.perf_counter() - started_at) * 1000)
+
+        safe_create_retrieval_log(
+            RetrievalLogCreate(
+                tenant_id=MOCK_TENANT_ID,
+                endpoint="ask",
+                query_text=request.question,
+                top_k=request.top_k,
+                category=request.category,
+                retrieval_status="failed",
+                total_hits=0,
+                latency_ms=latency_ms,
+                error_message=str(exc),
+            )
+        )
+
         raise HTTPException(
             status_code=500,
             detail=f"RAG ask failed: {exc}",
         ) from exc
 
-    source_responses = []   
+    source_responses = []
 
     for index, source in enumerate(rag_result.sources, start=1):
         source_responses.append(
@@ -190,6 +208,54 @@ def rag_ask(request: RagAskRequest):
                 preview=make_preview(source.preview),
             )
         )
+
+    source_documents = [
+        {
+            "rank": source.rank,
+            "document_id": source.document_id,
+            "chunk_id": source.chunk_id,
+            "title": source.title,
+            "source_path": source.source_path,
+            "chunk_index": source.chunk_index,
+            "distance": source.distance,
+            "tenant_id": source.tenant_id,
+            "category": source.category,
+        }
+        for source in source_responses
+    ]
+
+    scores = [
+        source.distance
+        for source in source_responses
+    ]
+
+    latency_ms = int((time.perf_counter() - started_at) * 1000)
+
+    safe_create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id=MOCK_TENANT_ID,
+            endpoint="ask",
+            query_text=request.question,
+            top_k=request.top_k,
+            category=request.category,
+            retrieval_status=rag_result.retrieval_status,
+            total_hits=len(source_responses),
+            top_distance=(
+                round(rag_result.top_distance, 4)
+                if rag_result.top_distance is not None
+                else None
+            ),
+            source_documents_json=json.dumps(
+                source_documents,
+                ensure_ascii=False,
+            ),
+            scores_json=json.dumps(
+                scores,
+                ensure_ascii=False,
+            ),
+            latency_ms=latency_ms,
+        )
+    )
 
     return RagAskResponse(
         question=request.question,

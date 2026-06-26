@@ -121,6 +121,7 @@ def test_rag_ask_returns_answer_and_sources(monkeypatch):
     )
 
     calls = {}
+    log_calls = {}
 
     def fake_answer_question(
     question: str,
@@ -136,7 +137,27 @@ def test_rag_ask_returns_answer_and_sources(monkeypatch):
         calls["category"] = category
         return fake_rag_result
 
+    def fake_create_retrieval_log_service(retrieval_log_create):
+        log_calls["tenant_id"] = retrieval_log_create.tenant_id
+        log_calls["endpoint"] = retrieval_log_create.endpoint
+        log_calls["query_text"] = retrieval_log_create.query_text
+        log_calls["top_k"] = retrieval_log_create.top_k
+        log_calls["category"] = retrieval_log_create.category
+        log_calls["retrieval_status"] = retrieval_log_create.retrieval_status
+        log_calls["total_hits"] = retrieval_log_create.total_hits
+        log_calls["top_distance"] = retrieval_log_create.top_distance
+        log_calls["source_documents_json"] = (
+            retrieval_log_create.source_documents_json
+        )
+        log_calls["scores_json"] = retrieval_log_create.scores_json
+        log_calls["latency_ms"] = retrieval_log_create.latency_ms
+    
     monkeypatch.setattr(rag_router, "answer_question", fake_answer_question)
+    monkeypatch.setattr(
+        rag_router,
+        "create_retrieval_log_service",
+        fake_create_retrieval_log_service,
+    )
 
     response = client.post(
         "/rag/ask",
@@ -168,6 +189,18 @@ def test_rag_ask_returns_answer_and_sources(monkeypatch):
     assert data["sources"][0]["tenant_id"] == "tenant_demo"
     assert data["sources"][0]["category"] == "general"
     assert "\n" not in data["sources"][0]["preview"]
+
+    assert log_calls["tenant_id"] == "tenant_demo"
+    assert log_calls["endpoint"] == "ask"
+    assert log_calls["query_text"] == "RAG 为什么需要 chunk？"
+    assert log_calls["top_k"] == 3
+    assert log_calls["category"] == "general"
+    assert log_calls["retrieval_status"] == "ok"
+    assert log_calls["total_hits"] == 1
+    assert log_calls["top_distance"] == 0.5123
+    assert "doc_rag_notes" in log_calls["source_documents_json"]
+    assert "0.5123" in log_calls["scores_json"]
+    assert isinstance(log_calls["latency_ms"], int)
 
 
 def test_rag_search_rejects_empty_query():
@@ -248,7 +281,25 @@ def test_rag_ask_returns_500_when_service_fails(monkeypatch):
     ):
         raise RuntimeError("LLM is unavailable")
 
+    log_calls = {}
+
+    def fake_create_retrieval_log_service(retrieval_log_create):
+        log_calls["tenant_id"] = retrieval_log_create.tenant_id
+        log_calls["endpoint"] = retrieval_log_create.endpoint
+        log_calls["query_text"] = retrieval_log_create.query_text
+        log_calls["top_k"] = retrieval_log_create.top_k
+        log_calls["category"] = retrieval_log_create.category
+        log_calls["retrieval_status"] = retrieval_log_create.retrieval_status
+        log_calls["total_hits"] = retrieval_log_create.total_hits
+        log_calls["latency_ms"] = retrieval_log_create.latency_ms
+        log_calls["error_message"] = retrieval_log_create.error_message
+
     monkeypatch.setattr(rag_router, "answer_question", fake_answer_question)
+    monkeypatch.setattr(
+        rag_router,
+        "create_retrieval_log_service",
+        fake_create_retrieval_log_service,
+    )
 
     response = client.post(
         "/rag/ask",
@@ -261,3 +312,13 @@ def test_rag_ask_returns_500_when_service_fails(monkeypatch):
 
     assert response.status_code == 500
     assert "RAG ask failed" in response.json()["detail"]
+
+    assert log_calls["tenant_id"] == "tenant_demo"
+    assert log_calls["endpoint"] == "ask"
+    assert log_calls["query_text"] == "RAG 为什么需要 chunk？"
+    assert log_calls["top_k"] == 3
+    assert log_calls["category"] is None
+    assert log_calls["retrieval_status"] == "failed"
+    assert log_calls["total_hits"] == 0
+    assert isinstance(log_calls["latency_ms"], int)
+    assert log_calls["error_message"] == "LLM is unavailable"
