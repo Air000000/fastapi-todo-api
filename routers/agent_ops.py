@@ -1,3 +1,4 @@
+from typing import Literal
 from fastapi import APIRouter, Query
 
 from schemas.agent_ops import (
@@ -24,10 +25,34 @@ router = APIRouter(prefix="/agent-ops", tags=["agent-ops"])
 MOCK_TENANT_ID = "tenant_demo"
 MOCK_USER_ID = "user_demo"
 
+AgentRunStatusQuery = Literal[
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+]
+
+ToolCallStatusQuery = Literal[
+    "pending",
+    "success",
+    "failed",
+]
+
+ApprovalRequestStatusQuery = Literal[
+    "pending",
+    "approved",
+    "rejected",
+    "cancelled",
+]
+
+ApprovalTypeQuery = Literal[
+    "ticket_creation",
+]
+
 
 @router.get("/runs", response_model=list[AgentRunResponse])
 def list_agent_runs(
-    status: str | None = None,
+    status: AgentRunStatusQuery | None = None,
     agent_name: str | None = None,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -59,7 +84,7 @@ def get_agent_run(agent_run_id: int) -> AgentRunResponse:
 @router.get("/tool-calls", response_model=list[ToolCallResponse])
 def list_tool_calls(
     agent_run_id: int | None = None,
-    status: str | None = None,
+    status: ToolCallStatusQuery | None = None,
     tool_name: str | None = None,
     error_type: str | None = None,
     limit: int = Query(20, ge=1, le=100),
@@ -87,7 +112,7 @@ def list_tool_calls(
 )
 def list_tool_calls_by_run(
     agent_run_id: int,
-    status: str | None = None,
+    status: ToolCallStatusQuery | None = None,
     tool_name: str | None = None,
     error_type: str | None = None,
 ) -> list[ToolCallResponse]:
@@ -111,8 +136,8 @@ def list_tool_calls_by_run(
 )
 def list_approval_requests(
     agent_run_id: int | None = None,
-    status: str | None = None,
-    approval_type: str | None = None,
+    status: ApprovalRequestStatusQuery | None = None,
+    approval_type: ApprovalTypeQuery | None = None,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[ApprovalRequestResponse]:

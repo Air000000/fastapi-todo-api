@@ -619,3 +619,39 @@ def test_list_approval_requests_with_filters(monkeypatch):
     assert data[0]["approval_type"] == "ticket_creation"
     assert data[0]["status"] == "pending"
     assert data[0]["decision_reason"] is None
+
+
+def test_list_agent_runs_rejects_invalid_status():
+    response = client.get(
+        "/agent-ops/runs",
+        params={"status": "pending"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_list_tool_calls_rejects_invalid_status():
+    response = client.get(
+        "/agent-ops/tool-calls",
+        params={"status": "cancelled"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_list_tool_calls_by_run_rejects_invalid_status():
+    response = client.get(
+        "/agent-ops/runs/1/tool-calls",
+        params={"status": "cancelled"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_list_approval_requests_rejects_invalid_approval_type():
+    response = client.get(
+        "/agent-ops/approval-requests",
+        params={"approval_type": "create_ticket"},
+    )
+
+    assert response.status_code == 422
