@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 from schemas.agent_ops import (
     AgentOpsMetricsSummaryResponse,
     AgentRunResponse,
+    AgentRunTraceResponse,
     ApprovalDecisionRequest,
     ApprovalRequestResponse,
     ApprovalRequestUpdate,
@@ -12,6 +13,7 @@ from schemas.agent_ops import (
 from services.agent_ops_service import (
     get_agent_ops_metrics_summary as get_agent_ops_metrics_summary_service,
     get_agent_run as get_agent_run_service,
+    get_agent_run_trace as get_agent_run_trace_service,
     list_agent_runs as list_agent_runs_service,
     list_approval_requests as list_approval_requests_service,
     list_approval_requests_by_run as list_approval_requests_by_run_service,
@@ -79,6 +81,29 @@ def get_agent_run(agent_run_id: int) -> AgentRunResponse:
     )
 
     return AgentRunResponse.model_validate(agent_run)
+
+
+@router.get(
+    "/runs/{agent_run_id}/trace",
+    response_model=AgentRunTraceResponse,
+)
+def get_agent_run_trace(agent_run_id: int) -> AgentRunTraceResponse:
+    agent_run, tool_calls, approval_requests = get_agent_run_trace_service(
+        agent_run_id=agent_run_id,
+        tenant_id=MOCK_TENANT_ID,
+    )
+
+    return AgentRunTraceResponse(
+        agent_run=AgentRunResponse.model_validate(agent_run),
+        tool_calls=[
+            ToolCallResponse.model_validate(tool_call)
+            for tool_call in tool_calls
+        ],
+        approval_requests=[
+            ApprovalRequestResponse.model_validate(approval_request)
+            for approval_request in approval_requests
+        ],
+    )
 
 
 @router.get("/tool-calls", response_model=list[ToolCallResponse])

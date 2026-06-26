@@ -128,6 +128,93 @@ def test_get_agent_run(monkeypatch):
     assert data["latency_ms"] == 123
     assert data["retrieval_summary_json"] == '{"top_k":3,"sources_count":1}'
 
+
+def test_get_agent_run_trace(monkeypatch):
+    calls = {}
+
+    def fake_get_agent_run_trace_service(
+        agent_run_id: int,
+        tenant_id: str,
+    ):
+        calls["agent_run_id"] = agent_run_id
+        calls["tenant_id"] = tenant_id
+
+        agent_run = SimpleNamespace(
+            id=1,
+            tenant_id=tenant_id,
+            user_id="user_demo",
+            agent_name="ticket_agent",
+            input_message="VPN 连不上",
+            category="it",
+            status="completed",
+            result_summary="Created ticket draft",
+            latency_ms=1200,
+            retrieval_summary_json='{"top_k":3}',
+            created_at=datetime(2026, 1, 1, 10, 0, 0),
+            updated_at=datetime(2026, 1, 1, 10, 0, 5),
+        )
+
+        tool_calls = [
+            SimpleNamespace(
+                id=201,
+                agent_run_id=agent_run_id,
+                tenant_id=tenant_id,
+                tool_name="search_kb",
+                tool_input_json='{"query":"VPN 连不上"}',
+                tool_output_json='{"results_count":1}',
+                status="success",
+                error_type=None,
+                error_message=None,
+                created_at=datetime(2026, 1, 1, 10, 0, 1),
+                finished_at=datetime(2026, 1, 1, 10, 0, 2),
+            )
+        ]
+
+        approval_requests = [
+            SimpleNamespace(
+                id=301,
+                agent_run_id=agent_run_id,
+                tenant_id=tenant_id,
+                approval_type="ticket_creation",
+                status="approved",
+                draft_json='{"title":"VPN 连不上"}',
+                approved_by="user_demo",
+                decision_reason="Looks good",
+                created_at=datetime(2026, 1, 1, 10, 0, 3),
+                decided_at=datetime(2026, 1, 1, 10, 0, 4),
+            )
+        ]
+
+        return agent_run, tool_calls, approval_requests
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "get_agent_run_trace_service",
+        fake_get_agent_run_trace_service,
+    )
+
+    response = client.get("/agent-ops/runs/1/trace")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["agent_run_id"] == 1
+    assert calls["tenant_id"] == "tenant_demo"
+
+    assert data["agent_run"]["id"] == 1
+    assert data["agent_run"]["status"] == "completed"
+
+    assert len(data["tool_calls"]) == 1
+    assert data["tool_calls"][0]["tool_name"] == "search_kb"
+    assert data["tool_calls"][0]["status"] == "success"
+
+    assert len(data["approval_requests"]) == 1
+    assert data["approval_requests"][0]["approval_type"] == "ticket_creation"
+    assert data["approval_requests"][0]["status"] == "approved"
+    assert data["approval_requests"][0]["decision_reason"] == "Looks good"
+
+
 def test_list_tool_calls_by_run(monkeypatch):
     calls = {}
 

@@ -306,6 +306,31 @@ def list_approval_requests_by_run(
         return list(approval_requests)
 
 
+def get_agent_run_trace(
+    agent_run_id: int,
+    tenant_id: str,
+) -> tuple[AgentRun, list[ToolCall], list[ApprovalRequest]]:
+    """
+    获取指定 agent_run 的完整 trace，包括 agent_run 本身、相关的 tool_calls 和 approval_requests。
+    """
+    agent_run = get_agent_run(
+        agent_run_id=agent_run_id,
+        tenant_id=tenant_id,
+    )
+
+    tool_calls = list_tool_calls_by_run(
+        agent_run_id=agent_run_id,
+        tenant_id=tenant_id,
+    )
+
+    approval_requests = list_approval_requests_by_run(
+        agent_run_id=agent_run_id,
+        tenant_id=tenant_id,
+    )
+
+    return agent_run, tool_calls, approval_requests
+
+
 def list_approval_requests(
     tenant_id: str,
     agent_run_id: int | None = None,

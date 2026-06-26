@@ -152,3 +152,9 @@ class AgentOpsMetricsSummaryResponse(BaseModel):
     approved_approval_requests: int
     rejected_approval_requests: int
     cancelled_approval_requests: int
+
+
+class AgentRunTraceResponse(BaseModel):
+    agent_run: AgentRunResponse
+    tool_calls: list[ToolCallResponse]
+    approval_requests: list[ApprovalRequestResponse]
