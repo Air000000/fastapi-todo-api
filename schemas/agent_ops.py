@@ -134,6 +134,43 @@ class ApprovalRequestResponse(BaseModel):
     decided_at: datetime | None
     decision_reason: str | None
 
+
+class RetrievalLogCreate(BaseModel):
+    tenant_id: str = Field(..., min_length=1)
+    user_id: str | None = Field(default=None, max_length=100)
+    endpoint: str = Field(..., min_length=1, max_length=100)
+    query_text: str = Field(..., min_length=1, max_length=4000)
+    top_k: int = Field(..., ge=1)
+    category: str | None = Field(default=None, max_length=100)
+    retrieval_status: str = Field(default="ok", max_length=100)
+    total_hits: int = Field(default=0, ge=0)
+    top_distance: float | None = None
+    source_documents_json: str | None = None
+    scores_json: str | None = None
+    latency_ms: int | None = Field(default=None, ge=0)
+    error_message: str | None = Field(default=None, max_length=2000)
+
+
+class RetrievalLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    tenant_id: str
+    user_id: str | None
+    endpoint: str
+    query_text: str
+    top_k: int
+    category: str | None
+    retrieval_status: str
+    total_hits: int
+    top_distance: float | None
+    source_documents_json: str | None
+    scores_json: str | None
+    latency_ms: int | None
+    error_message: str | None
+    created_at: datetime
+
+
 class AgentOpsMetricsSummaryResponse(BaseModel):
     total_agent_runs: int
     running_agent_runs: int

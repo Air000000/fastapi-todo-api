@@ -6,13 +6,14 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from database import engine
-from models.agent_ops import AgentRun, ApprovalRequest, ToolCall
+from models.agent_ops import AgentRun, ApprovalRequest, RetrievalLog, ToolCall
 from schemas.agent_ops import (
     AgentOpsMetricsSummaryResponse,
     AgentRunCreate,
     AgentRunUpdate,
     ApprovalRequestCreate,
     ApprovalRequestUpdate,
+    RetrievalLogCreate,
     ToolCallCreate,
     ToolCallUpdate,
 )
@@ -395,7 +396,69 @@ def update_approval_request(
         session.refresh(approval_request)
 
         return approval_request
-    
+
+
+def create_retrieval_log(
+    retrieval_log_create: RetrievalLogCreate,
+) -> RetrievalLog:
+    retrieval_log = RetrievalLog(
+        tenant_id=retrieval_log_create.tenant_id,
+        user_id=retrieval_log_create.user_id,
+        endpoint=retrieval_log_create.endpoint,
+        query_text=retrieval_log_create.query_text,
+        top_k=retrieval_log_create.top_k,
+        category=retrieval_log_create.category,
+        retrieval_status=retrieval_log_create.retrieval_status,
+        total_hits=retrieval_log_create.total_hits,
+        top_distance=retrieval_log_create.top_distance,
+        source_documents_json=retrieval_log_create.source_documents_json,
+        scores_json=retrieval_log_create.scores_json,
+        latency_ms=retrieval_log_create.latency_ms,
+        error_message=retrieval_log_create.error_message,
+    )
+
+    with Session(engine) as session:
+        session.add(retrieval_log)
+        session.commit()
+        session.refresh(retrieval_log)
+        return retrieval_log
+
+
+def list_retrieval_logs(
+    tenant_id: str,
+    endpoint: str | None = None,
+    retrieval_status: str | None = None,
+    category: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> list[RetrievalLog]:
+    with Session(engine) as session:
+        statement = select(RetrievalLog).where(
+            RetrievalLog.tenant_id == tenant_id
+        )
+
+        if endpoint is not None:
+            statement = statement.where(RetrievalLog.endpoint == endpoint)
+
+        if retrieval_status is not None:
+            statement = statement.where(
+                RetrievalLog.retrieval_status == retrieval_status
+            )
+
+        if category is not None:
+            statement = statement.where(RetrievalLog.category == category)
+
+        statement = (
+            statement
+            .order_by(RetrievalLog.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        retrieval_logs = session.exec(statement).all()
+        return list(retrieval_logs)
+
+ 
 def count_status(items, status: str) -> int:
     return sum(1 for item in items if item.status == status)
 

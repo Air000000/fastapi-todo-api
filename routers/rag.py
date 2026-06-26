@@ -1,4 +1,8 @@
+import json
+import time
 from fastapi import APIRouter, HTTPException
+
+
 
 from schemas.rag import (
     RagSearchRequest,
@@ -8,6 +12,8 @@ from schemas.rag import (
     RagAskResponse,
     RagSourceResponse,
 )
+from schemas.agent_ops import RetrievalLogCreate
+from services.agent_ops_service import create_retrieval_log as create_retrieval_log_service
 from services.rag_service import answer_question, search_documents
 
 
@@ -28,9 +34,22 @@ def make_preview(text: str, max_length: int = 200) -> str:
     return normalized[:max_length] + "..."  # 截断  
 
 
+def safe_create_retrieval_log(
+    retrieval_log_create: RetrievalLogCreate,
+) -> None:
+    try:
+        create_retrieval_log_service(retrieval_log_create)
+    except Exception:
+        # Retrieval logging is best-effort.
+        # It should not break the user-facing RAG API.
+        pass
+
+
 @router.post("/search", response_model=RagSearchResponse)
 def rag_search(request: RagSearchRequest):
     """根据用户的查询语句，搜索相关的文档片段"""
+    started_at = time.perf_counter()
+
     try:
         results = search_documents(
             query=request.query,
@@ -39,6 +58,22 @@ def rag_search(request: RagSearchRequest):
             category=request.category,
         )
     except Exception as exc:
+        latency_ms = int((time.perf_counter() - started_at) * 1000)
+
+        safe_create_retrieval_log(
+            RetrievalLogCreate(
+                tenant_id=MOCK_TENANT_ID,
+                endpoint="search",
+                query_text=request.query,
+                top_k=request.top_k,
+                category=request.category,
+                retrieval_status="failed",
+                total_hits=0,
+                latency_ms=latency_ms,
+                error_message=str(exc),
+            )
+        )
+
         raise HTTPException(
             status_code=500,
             detail=f"RAG search failed: {exc}",
@@ -61,6 +96,58 @@ def rag_search(request: RagSearchRequest):
                 preview=make_preview(item.content),
             )
         )
+
+    source_documents = [
+        {
+            "rank": result.rank,
+            "document_id": result.document_id,
+            "chunk_id": result.chunk_id,
+            "title": result.title,
+            "source_path": result.source_path,
+            "chunk_index": result.chunk_index,
+            "distance": result.distance,
+            "tenant_id": result.tenant_id,
+            "category": result.category,
+        }
+        for result in response_results
+    ]
+
+    scores = [
+        result.distance
+        for result in response_results
+    ]
+
+    latency_ms = int((time.perf_counter() - started_at) * 1000)
+
+    safe_create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id=MOCK_TENANT_ID,
+            endpoint="search",
+            query_text=request.query,
+            top_k=request.top_k,
+            category=request.category,
+            retrieval_status=(
+                "ok"
+                if response_results
+                else "no_context"
+            ),
+            total_hits=len(response_results),
+            top_distance=(
+                response_results[0].distance
+                if response_results
+                else None
+            ),
+            source_documents_json=json.dumps(
+                source_documents,
+                ensure_ascii=False,
+            ),
+            scores_json=json.dumps(
+                scores,
+                ensure_ascii=False,
+            ),
+            latency_ms=latency_ms,
+        )
+    )
 
     return RagSearchResponse(
         query=request.query,

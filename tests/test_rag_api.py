@@ -23,6 +23,7 @@ def test_rag_search_returns_results(monkeypatch):
     ]
 
     calls = {}
+    log_calls = {}
 
     def fake_search_documents(
     query: str,
@@ -36,7 +37,27 @@ def test_rag_search_returns_results(monkeypatch):
         calls["category"] = category
         return fake_results
 
+    def fake_create_retrieval_log_service(retrieval_log_create):
+        log_calls["tenant_id"] = retrieval_log_create.tenant_id
+        log_calls["endpoint"] = retrieval_log_create.endpoint
+        log_calls["query_text"] = retrieval_log_create.query_text
+        log_calls["top_k"] = retrieval_log_create.top_k
+        log_calls["category"] = retrieval_log_create.category
+        log_calls["retrieval_status"] = retrieval_log_create.retrieval_status
+        log_calls["total_hits"] = retrieval_log_create.total_hits
+        log_calls["top_distance"] = retrieval_log_create.top_distance
+        log_calls["source_documents_json"] = (
+            retrieval_log_create.source_documents_json
+        )
+        log_calls["scores_json"] = retrieval_log_create.scores_json
+        log_calls["latency_ms"] = retrieval_log_create.latency_ms
+
     monkeypatch.setattr(rag_router, "search_documents", fake_search_documents)
+    monkeypatch.setattr(
+        rag_router,
+        "create_retrieval_log_service",
+        fake_create_retrieval_log_service,
+    )
 
     response = client.post(
         "/rag/search",
@@ -65,6 +86,18 @@ def test_rag_search_returns_results(monkeypatch):
     assert data["results"][0]["category"] == "general"
     assert "\n" not in data["results"][0]["preview"]
 
+
+    assert log_calls["tenant_id"] == "tenant_demo"
+    assert log_calls["endpoint"] == "search"
+    assert log_calls["query_text"] == "为什么系统能判断两段文字语义相近？"
+    assert log_calls["top_k"] == 3
+    assert log_calls["category"] == "general"
+    assert log_calls["retrieval_status"] == "ok"
+    assert log_calls["total_hits"] == 1
+    assert log_calls["top_distance"] == 0.8272
+    assert "doc_embedding_notes" in log_calls["source_documents_json"]
+    assert "0.8272" in log_calls["scores_json"]
+    assert isinstance(log_calls["latency_ms"], int)
 
 def test_rag_ask_returns_answer_and_sources(monkeypatch):
     fake_source = SimpleNamespace(

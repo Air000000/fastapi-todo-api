@@ -742,3 +742,87 @@ def test_list_approval_requests_rejects_invalid_approval_type():
     )
 
     assert response.status_code == 422
+
+
+def test_list_retrieval_logs_with_filters(monkeypatch):
+    calls = {}
+
+    def fake_list_retrieval_logs_service(
+        tenant_id: str,
+        endpoint: str | None = None,
+        retrieval_status: str | None = None,
+        category: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ):
+        calls["tenant_id"] = tenant_id
+        calls["endpoint"] = endpoint
+        calls["retrieval_status"] = retrieval_status
+        calls["category"] = category
+        calls["limit"] = limit
+        calls["offset"] = offset
+
+        return [
+            SimpleNamespace(
+                id=501,
+                tenant_id=tenant_id,
+                user_id=None,
+                endpoint="search",
+                query_text="VPN 连不上怎么办？",
+                top_k=3,
+                category="it",
+                retrieval_status="ok",
+                total_hits=1,
+                top_distance=0.3123,
+                source_documents_json='[{"document_id":"doc_vpn"}]',
+                scores_json="[0.3123]",
+                latency_ms=123,
+                error_message=None,
+                created_at=datetime(2026, 1, 1, 10, 0, 0),
+            )
+        ]
+
+    monkeypatch.setattr(
+        agent_ops_router,
+        "list_retrieval_logs_service",
+        fake_list_retrieval_logs_service,
+    )
+
+    response = client.get(
+        "/agent-ops/retrieval-logs",
+        params={
+            "endpoint": "search",
+            "retrieval_status": "ok",
+            "category": "it",
+            "limit": 10,
+            "offset": 20,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert calls["tenant_id"] == "tenant_demo"
+    assert calls["endpoint"] == "search"
+    assert calls["retrieval_status"] == "ok"
+    assert calls["category"] == "it"
+    assert calls["limit"] == 10
+    assert calls["offset"] == 20
+
+    assert len(data) == 1
+    assert data[0]["id"] == 501
+    assert data[0]["endpoint"] == "search"
+    assert data[0]["query_text"] == "VPN 连不上怎么办？"
+    assert data[0]["retrieval_status"] == "ok"
+    assert data[0]["total_hits"] == 1
+    assert data[0]["top_distance"] == 0.3123
+
+
+def test_list_retrieval_logs_rejects_invalid_status():
+    response = client.get(
+        "/agent-ops/retrieval-logs",
+        params={"retrieval_status": "unknown"},
+    )
+
+    assert response.status_code == 422

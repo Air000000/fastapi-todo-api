@@ -10,6 +10,7 @@ from schemas.agent_ops import (
     AgentRunUpdate,
     ApprovalRequestCreate,
     ApprovalRequestUpdate,
+    RetrievalLogCreate,
     ToolCallCreate,
     ToolCallUpdate,
 )
@@ -943,3 +944,65 @@ def test_list_agent_runs_with_pagination(agent_ops_test_engine):
         second_run.id,
     ]
     assert [agent_run.id for agent_run in second_page] == [first_run.id]
+
+
+def test_create_and_list_retrieval_logs(agent_ops_test_engine):
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="search",
+            query_text="VPN 连不上怎么办？",
+            top_k=3,
+            category="it",
+            retrieval_status="ok",
+            total_hits=2,
+            top_distance=0.3123,
+            source_documents_json='[{"document_id":"doc_vpn"}]',
+            scores_json="[0.3123, 0.4567]",
+            latency_ms=123,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="search",
+            query_text="邮箱无法登录",
+            top_k=3,
+            category="it",
+            retrieval_status="no_context",
+            total_hits=0,
+            latency_ms=88,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="other_tenant",
+            endpoint="search",
+            query_text="其他租户问题",
+            top_k=3,
+            category="it",
+            retrieval_status="ok",
+            total_hits=1,
+        )
+    )
+
+    logs = agent_ops_service.list_retrieval_logs(
+        tenant_id="tenant_demo",
+        endpoint="search",
+        retrieval_status="ok",
+        category="it",
+        limit=20,
+        offset=0,
+    )
+
+    assert len(logs) == 1
+    assert logs[0].tenant_id == "tenant_demo"
+    assert logs[0].endpoint == "search"
+    assert logs[0].query_text == "VPN 连不上怎么办？"
+    assert logs[0].retrieval_status == "ok"
+    assert logs[0].total_hits == 2
+    assert logs[0].top_distance == 0.3123
+    assert logs[0].source_documents_json == '[{"document_id":"doc_vpn"}]'
+    assert logs[0].scores_json == "[0.3123, 0.4567]"

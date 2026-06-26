@@ -8,6 +8,7 @@ from schemas.agent_ops import (
     ApprovalDecisionRequest,
     ApprovalRequestResponse,
     ApprovalRequestUpdate,
+    RetrievalLogResponse,
     ToolCallResponse,
 )
 from services.agent_ops_service import (
@@ -17,6 +18,7 @@ from services.agent_ops_service import (
     list_agent_runs as list_agent_runs_service,
     list_approval_requests as list_approval_requests_service,
     list_approval_requests_by_run as list_approval_requests_by_run_service,
+    list_retrieval_logs as list_retrieval_logs_service,
     list_tool_calls as list_tool_calls_service,
     list_tool_calls_by_run as list_tool_calls_by_run_service,
     update_approval_request as update_approval_request_service,
@@ -49,6 +51,17 @@ ApprovalRequestStatusQuery = Literal[
 
 ApprovalTypeQuery = Literal[
     "ticket_creation",
+]
+
+RetrievalEndpointQuery = Literal[
+    "search",
+    "ask",
+]
+
+RetrievalStatusQuery = Literal[
+    "ok",
+    "no_context",
+    "failed",
 ]
 
 
@@ -196,6 +209,32 @@ def list_approval_requests_by_run(
     return [
         ApprovalRequestResponse.model_validate(approval_request)
         for approval_request in approval_requests
+    ]
+
+
+@router.get(
+    "/retrieval-logs",
+    response_model=list[RetrievalLogResponse],
+)
+def list_retrieval_logs(
+    endpoint: RetrievalEndpointQuery | None = None,
+    retrieval_status: RetrievalStatusQuery | None = None,
+    category: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> list[RetrievalLogResponse]:
+    retrieval_logs = list_retrieval_logs_service(
+        tenant_id=MOCK_TENANT_ID,
+        endpoint=endpoint,
+        retrieval_status=retrieval_status,
+        category=category,
+        limit=limit,
+        offset=offset,
+    )
+
+    return [
+        RetrievalLogResponse.model_validate(retrieval_log)
+        for retrieval_log in retrieval_logs
     ]
 
 
