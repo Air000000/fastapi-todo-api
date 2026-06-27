@@ -10,6 +10,7 @@ from schemas.agent_ops import (
     ApprovalRequestUpdate,
     RetrievalLogResponse,
     RetrievalMetricsSummaryResponse,
+    RetrievalNoContextQueryMetricResponse,
     RetrievalSourceMetricResponse,
     ToolCallResponse,
 )
@@ -18,6 +19,7 @@ from services.agent_ops_service import (
     get_agent_run as get_agent_run_service,
     get_agent_run_trace as get_agent_run_trace_service,
     get_retrieval_metrics_summary as get_retrieval_metrics_summary_service,
+    get_retrieval_no_context_query_metrics as get_retrieval_no_context_query_metrics_service,
     get_retrieval_source_metrics as get_retrieval_source_metrics_service,
     list_agent_runs as list_agent_runs_service,
     list_approval_requests as list_approval_requests_service,
@@ -88,6 +90,23 @@ def list_agent_runs(
         AgentRunResponse.model_validate(agent_run)
         for agent_run in agent_runs
     ]
+
+
+@router.get(
+    "/metrics/retrieval/no-context-queries",
+    response_model=list[RetrievalNoContextQueryMetricResponse],
+)
+def get_retrieval_no_context_query_metrics(
+    endpoint: RetrievalEndpointQuery | None = None,
+    category: str | None = None,
+    limit: int = Query(default=10, ge=1, le=100),
+) -> list[RetrievalNoContextQueryMetricResponse]:
+    return get_retrieval_no_context_query_metrics_service(
+        tenant_id=MOCK_TENANT_ID,
+        endpoint=endpoint,
+        category=category,
+        limit=limit,
+    )
 
 
 @router.get("/runs/{agent_run_id}", response_model=AgentRunResponse)

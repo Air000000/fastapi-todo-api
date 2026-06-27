@@ -16,6 +16,7 @@ from schemas.agent_ops import (
     ApprovalRequestUpdate,
     RetrievalLogCreate,
     RetrievalMetricsSummaryResponse,
+    RetrievalNoContextQueryMetricResponse,
     RetrievalSourceMetricResponse,
     ToolCallCreate,
     ToolCallUpdate,
@@ -711,5 +712,71 @@ def get_retrieval_source_metrics(
             item.retrieval_count,
             -(item.average_distance or 0),
         ),
+        reverse=True,
+    )[:limit]
+
+
+def get_retrieval_no_context_query_metrics(
+    tenant_id: str,
+    endpoint: str | None = None,
+    category: str | None = None,
+    limit: int = 10,
+) -> list[RetrievalNoContextQueryMetricResponse]:
+    with Session(engine) as session:
+        statement = (
+            select(RetrievalLog)
+            .where(RetrievalLog.tenant_id == tenant_id)
+            .where(RetrievalLog.retrieval_status == "no_context")
+        )
+
+        if endpoint is not None:
+            statement = statement.where(RetrievalLog.endpoint == endpoint)
+
+        if category is not None:
+            statement = statement.where(RetrievalLog.category == category)
+
+        retrieval_logs = list(session.exec(statement).all())
+
+    query_metrics: dict[tuple[str, str, str | None], dict] = {}
+
+    for retrieval_log in retrieval_logs:
+        key = (
+            retrieval_log.query_text,
+            retrieval_log.endpoint,
+            retrieval_log.category,
+        )
+
+        metric = query_metrics.setdefault(
+            key,
+            {
+                "query_text": retrieval_log.query_text,
+                "endpoint": retrieval_log.endpoint,
+                "category": retrieval_log.category,
+                "no_context_count": 0,
+                "latest_latency_ms": None,
+                "latest_id": 0,
+            },
+        )
+
+        metric["no_context_count"] += 1
+
+        if retrieval_log.id is not None and retrieval_log.id > metric["latest_id"]:
+            metric["latest_id"] = retrieval_log.id
+            metric["latest_latency_ms"] = retrieval_log.latency_ms
+
+    results = [
+        RetrievalNoContextQueryMetricResponse(
+            query_text=metric["query_text"],
+            endpoint=metric["endpoint"],
+            category=metric["category"],
+            no_context_count=metric["no_context_count"],
+            latest_latency_ms=metric["latest_latency_ms"],
+        )
+        for metric in query_metrics.values()
+    ]
+
+    return sorted(
+        results,
+        key=lambda item: item.no_context_count,
         reverse=True,
     )[:limit]

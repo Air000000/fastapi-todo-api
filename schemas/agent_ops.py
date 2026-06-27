@@ -190,6 +190,14 @@ class RetrievalSourceMetricResponse(BaseModel):
     average_distance: float | None = None
 
 
+class RetrievalNoContextQueryMetricResponse(BaseModel):
+    query_text: str
+    endpoint: str
+    category: str | None = None
+    no_context_count: int
+    latest_latency_ms: int | None = None
+
+
 class AgentOpsMetricsSummaryResponse(BaseModel):
     total_agent_runs: int
     running_agent_runs: int

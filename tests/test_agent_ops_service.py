@@ -1203,3 +1203,107 @@ def test_get_retrieval_source_metrics(agent_ops_test_engine):
 
     assert len(limited_metrics) == 1
     assert limited_metrics[0].document_id == "doc_vpn"
+
+
+def test_get_retrieval_no_context_query_metrics(agent_ops_test_engine):
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="ask",
+            query_text="VPN 怎么配置？",
+            top_k=3,
+            category="it",
+            retrieval_status="no_context",
+            total_hits=0,
+            latency_ms=100,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="ask",
+            query_text="VPN 怎么配置？",
+            top_k=3,
+            category="it",
+            retrieval_status="no_context",
+            total_hits=0,
+            latency_ms=200,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="search",
+            query_text="打印机驱动怎么下载？",
+            top_k=3,
+            category="it",
+            retrieval_status="no_context",
+            total_hits=0,
+            latency_ms=150,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="tenant_demo",
+            endpoint="ask",
+            query_text="VPN 怎么配置？",
+            top_k=3,
+            category="it",
+            retrieval_status="ok",
+            total_hits=1,
+            latency_ms=80,
+        )
+    )
+
+    agent_ops_service.create_retrieval_log(
+        RetrievalLogCreate(
+            tenant_id="other_tenant",
+            endpoint="ask",
+            query_text="VPN 怎么配置？",
+            top_k=3,
+            category="it",
+            retrieval_status="no_context",
+            total_hits=0,
+            latency_ms=50,
+        )
+    )
+
+    metrics = agent_ops_service.get_retrieval_no_context_query_metrics(
+        tenant_id="tenant_demo",
+        limit=10,
+    )
+
+    assert len(metrics) == 2
+
+    assert metrics[0].query_text == "VPN 怎么配置？"
+    assert metrics[0].endpoint == "ask"
+    assert metrics[0].category == "it"
+    assert metrics[0].no_context_count == 2
+    assert metrics[0].latest_latency_ms == 200
+
+    assert metrics[1].query_text == "打印机驱动怎么下载？"
+    assert metrics[1].endpoint == "search"
+    assert metrics[1].category == "it"
+    assert metrics[1].no_context_count == 1
+    assert metrics[1].latest_latency_ms == 150
+
+    ask_metrics = agent_ops_service.get_retrieval_no_context_query_metrics(
+        tenant_id="tenant_demo",
+        endpoint="ask",
+        limit=10,
+    )
+
+    assert len(ask_metrics) == 1
+    assert ask_metrics[0].query_text == "VPN 怎么配置？"
+    assert ask_metrics[0].endpoint == "ask"
+
+    limited_metrics = agent_ops_service.get_retrieval_no_context_query_metrics(
+        tenant_id="tenant_demo",
+        limit=1,
+    )
+
+    assert len(limited_metrics) == 1
+    assert limited_metrics[0].query_text == "VPN 怎么配置？"
