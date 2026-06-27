@@ -43,6 +43,7 @@ jobs:
             tests/test_todos.py \
             tests/test_rag_api.py \
             tests/test_rag_service.py \
+            tests/test_query_chroma.py \
             tests/test_tickets.py \
             tests/test_agent_ops_service.py \
             tests/test_agent_ops_api.py \
