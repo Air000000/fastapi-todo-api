@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from main import app
+
+
+def test_upload_document_api_success(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("DOCUMENT_STORAGE_ROOT", str(tmp_path))
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/documents/upload",
+            data={"category": "it"},
+            files={
+                "file": (
+                    "api_vpn_guide.md",
+                    b"# VPN Guide\n\nCheck network, account status, and VPN client config.",
+                    "text/markdown",
+                ),
+            },
+        )
+
+    assert response.status_code == 201
+
+    data = response.json()
+    assert data["id"].startswith("doc_")
+    assert data["tenant_id"] == "tenant_demo"
+    assert data["uploaded_by"] == "user_demo"
+    assert data["filename"] == "api_vpn_guide.md"
+    assert data["file_type"] == "md"
+    assert data["category"] == "it"
+    assert data["status"] == "uploaded"
+    assert data["version"] == 1
+    assert data["chunk_count"] == 0
+    assert data["checksum"]
+
+    saved_path = Path(data["source_path"])
+    assert saved_path.exists()
+    assert saved_path.read_bytes().startswith(b"# VPN Guide")
+
+
+def test_upload_document_api_rejects_unsupported_type(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("DOCUMENT_STORAGE_ROOT", str(tmp_path))
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/documents/upload",
+            data={"category": "hr"},
+            files={
+                "file": (
+                    "policy.pdf",
+                    b"fake pdf content",
+                    "application/pdf",
+                ),
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Only .md and .txt files are supported"
+
+
+def test_list_documents_api_with_category_filter(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("DOCUMENT_STORAGE_ROOT", str(tmp_path))
+
+    with TestClient(app) as client:
+        upload_response = client.post(
+            "/documents/upload",
+            data={"category": "finance"},
+            files={
+                "file": (
+                    "api_invoice_rules.txt",
+                    b"Invoice reimbursement requires a valid invoice and approval record.",
+                    "text/plain",
+                ),
+            },
+        )
+
+        assert upload_response.status_code == 201
+        uploaded = upload_response.json()
+
+        list_response = client.get("/documents?category=finance")
+
+    assert list_response.status_code == 200
+
+    data = list_response.json()
+    assert data["total"] >= 1
+    assert data["limit"] == 20
+    assert data["offset"] == 0
+    assert any(item["id"] == uploaded["id"] for item in data["items"])
+    assert all(item["category"] == "finance" for item in data["items"])
+
+
+def test_get_document_api_success(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("DOCUMENT_STORAGE_ROOT", str(tmp_path))
+
+    with TestClient(app) as client:
+        upload_response = client.post(
+            "/documents/upload",
+            data={"category": "hr"},
+            files={
+                "file": (
+                    "api_leave_policy.md",
+                    b"# Leave Policy\n\nAnnual leave should be submitted in the HR system.",
+                    "text/markdown",
+                ),
+            },
+        )
+
+        assert upload_response.status_code == 201
+        uploaded = upload_response.json()
+
+        get_response = client.get(f"/documents/{uploaded['id']}")
+
+    assert get_response.status_code == 200
+
+    data = get_response.json()
+    assert data["id"] == uploaded["id"]
+    assert data["filename"] == "api_leave_policy.md"
+    assert data["file_type"] == "md"
+    assert data["category"] == "hr"
+    assert data["status"] == "uploaded"
+
+
+def test_get_missing_document_api_returns_404():
+    with TestClient(app) as client:
+        response = client.get("/documents/doc_missing")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Document not found"

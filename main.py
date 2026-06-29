@@ -22,6 +22,7 @@ from routers.rag import router as rag_router
 from routers.tickets import router as tickets_router
 from routers.agent_ticket import router as agent_ticket_router
 from routers.agent_ops import router as agent_ops_router
+from routers.documents import router as documents_router
 
 from models.ticket import Ticket  # noqa: F401
 from models.agent_ops import AgentRun, ApprovalRequest, ToolCall  # noqa: F401
@@ -88,6 +89,7 @@ app.include_router(rag_router)
 app.include_router(tickets_router)
 app.include_router(agent_ticket_router)
 app.include_router(agent_ops_router)
+app.include_router(documents_router)
 
 """ todos = [
     {
