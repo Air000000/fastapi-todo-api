@@ -392,6 +392,9 @@ fastapi-todo-api/
 │   ├── test_agent_ops_api.py
 │   ├── test_ticket_agent_service.py
 │   └── test_agent_ticket_api.py
+├── scripts/
+│   ├── smoke_agentops_flow.py
+│   └── smoke_document_backend_flow.py
 ├── data/
 ├── Dockerfile
 ├── docker-compose.yml
@@ -611,11 +614,33 @@ docker compose up --build
 
 ------
 
-## 12. AgentOps Smoke Test
+## 12. Smoke Tests
 
-本项目提供一个端到端 smoke script，用于验证 Ticket Agent 与 AgentOps 的完整 API 链路。
+本项目提供两类端到端 smoke script，用于在真实 FastAPI 服务启动后验证关键 API 链路。
 
-该脚本会依次执行：
+Smoke script 与 pytest 的定位不同：
+
+```text
+pytest:
+验证 model / service / API 的单元或集成行为，通常使用 monkeypatch 隔离外部依赖。
+
+smoke script:
+调用真实运行中的 API 服务，验证 FastAPI、SQLite、Chroma、embedding 和业务链路能否串起来。
+```
+
+因此 smoke script 不放入 GitHub Actions 默认 CI。它们适合用于本地验收、Docker Compose 启动后验收，以及 demo 前快速确认系统可用。
+
+运行 smoke script 前，需要先启动服务，并确保 `.env` 中配置了有效的模型 API key。
+
+### 12.1 AgentOps Smoke Test
+
+脚本：
+
+```bash
+python scripts/smoke_agentops_flow.py
+```
+
+该脚本验证 Ticket Agent 与 AgentOps 的完整 API 链路：
 
 ```text
 GET  /health
@@ -626,25 +651,100 @@ POST /agent/ticket/confirm
 GET  /agent-ops/runs/{agent_run_id}/tool-calls
 GET  /agent-ops/metrics/summary
 ```
-运行前先启动服务：
-uvicorn main:app --reload
-
-另开一个终端执行：
-python scripts/smoke_agentops_flow.py
 
 预期输出：
+
+```text
 Smoke test passed.
 Validated: preview -> search_kb/classify_ticket -> approval -> confirm -> create_ticket -> metrics
+```
 
-如需指定 API 地址：
-API_BASE_URL=http://127.0.0.1:8000 python scripts/smoke_agentops_flow.py
+### 12.2 Document Backend Smoke Test
 
-Windows PowerShell 里最后一条可以写成：
+脚本：
+
+```bash
+python scripts/smoke_document_backend_flow.py
+```
+
+该脚本验证 Document Backend 与 RAG 的完整文档生命周期：
+
+```text
+GET /health
+↓
+POST /documents/upload
+↓
+POST /documents/{document_id}/index
+↓
+POST /rag/search 确认上传文档可检索
+↓
+DELETE /documents/{document_id}
+↓
+POST /rag/search 确认删除文档不再返回
+```
+
+该脚本会触发真实 embedding 调用，需要 `.env` 中存在有效的：
+
+```env
+DASHSCOPE_API_KEY=your_dashscope_api_key_here
+DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+EMBEDDING_MODEL=text-embedding-v4
+```
+
+预期输出：
+
+```text
+Smoke test passed.
+Validated: health -> upload -> index -> search hit -> delete -> search miss
+```
+
+### 12.3 本地运行方式
+
+先启动本地服务：
+
+```bash
+uvicorn main:app --reload
+```
+
+另开一个终端运行：
+
+```bash
+python scripts/smoke_agentops_flow.py
+python scripts/smoke_document_backend_flow.py
+```
+
+如需指定 API 地址，Windows PowerShell 可以写成：
 
 ```powershell
 $env:API_BASE_URL="http://127.0.0.1:8000"
 python scripts/smoke_agentops_flow.py
+python scripts/smoke_document_backend_flow.py
 ```
+
+### 12.4 Docker Compose 运行方式
+
+先启动 Docker 服务：
+
+```powershell
+docker compose up --build
+```
+
+另开一个 PowerShell 窗口确认服务可访问：
+
+```powershell
+curl.exe http://127.0.0.1:8000/health
+```
+
+然后在宿主机运行 smoke scripts：
+
+```powershell
+$env:API_BASE_URL="http://127.0.0.1:8000"
+python scripts/smoke_agentops_flow.py
+python scripts/smoke_document_backend_flow.py
+```
+
+注意：Docker Compose 使用独立的 `docker_data/`、`docker_storage/` 和 `docker_chroma_db/` 目录，因此 Docker 环境下的 smoke 数据不会污染本地开发数据目录。
+
 ------
 
 ## 13. 构建 Chroma 向量索引
@@ -1009,16 +1109,15 @@ RAG 测试使用 `monkeypatch` 隔离真实 Chroma、embedding 和 LLM 调用，
 短期下一步：
 
 ```text
-Smoke Test + Demo packaging
+Security boundary and final project packaging
 ```
 
 计划包括：
-1. 补充 demo script 中的 Document Backend 演示流程。
-2. 整理端到端 API smoke test。
-3. 更新架构图和项目说明。
-4. README 已补充 Docker Compose 本地运行说明，后续补充 demo script 中的 Docker 演示方式。
-5. 保留 AgentOps dashboard / 时间窗口筛选作为后续增强。
-6. 保留真实 tenant / user auth context 作为后续增强。
+1. 在 `docs/security.md` 中补充 Document Backend、公网暴露、API key 和模型调用成本风险边界。
+2. 保持 README / demo_script / smoke scripts 与当前实现同步。
+3. 补充最终架构说明和项目边界说明。
+4. 保留 AgentOps dashboard / 时间窗口筛选作为后续增强。
+5. 保留真实 tenant / user auth context 作为后续增强。
 
 中期计划：
 1. indexing job logs。
@@ -1036,5 +1135,5 @@ Smoke Test + Demo packaging
 
 仓库名保留为 `fastapi-todo-api`，因为项目最初从 FastAPI Todo API 开始演进。当前 `main` 分支是 `Enterprise Support AI Copilot` 的主开发分支。
 
-当前 `main` 分支已经完成 Enterprise RAG Core v1、Ticket CRUD MVP、Ticket Agent MVP、AgentOps read API、Retrieval Logs / Metrics、Document Backend MVP、approval reject / cancel API 和 AgentOps metrics summary API。后续可以继续推进 demo script 整理、Document Backend smoke test、真实 tenant / user auth context、真实前端审批界面、AgentOps dashboard / 时间窗口筛选和文档版本管理。
+当前 `main` 分支已经完成 Enterprise RAG Core v1、Ticket CRUD MVP、Ticket Agent MVP、AgentOps read API、Retrieval Logs / Metrics、Document Backend MVP、Docker Compose 本地运行、Document Backend smoke test、approval reject / cancel API 和 AgentOps metrics summary API。后续可以继续推进安全边界文档、真实 tenant / user auth context、真实前端审批界面、AgentOps dashboard / 时间窗口筛选和文档版本管理。
 

@@ -109,7 +109,7 @@ dir *.sqlite -Recurse
 找到本地开发数据库后删除，例如：
 
 ```powershell
-Remove-Item .pp.db
+Remove-Item .\app.db
 ```
 
 实际文件名以本地项目为准。
@@ -1298,53 +1298,26 @@ Metrics summary
 
 ---
 
-## 20. Optional: Run Smoke Script
+## 20. Optional: Run Smoke Scripts
 
-如果不想手动通过 Swagger 点击完整流程，可以运行 smoke script。
+如果不想手动通过 Swagger 点击完整流程，可以运行 smoke scripts。
 
-### 20.1 本地开发方式运行
+当前项目提供两个 smoke script：
 
-先启动服务：
+```text
+scripts/smoke_agentops_flow.py
+scripts/smoke_document_backend_flow.py
+```
+
+它们会调用真实运行中的 FastAPI 服务，适合用于本地验收、Docker Compose 启动后验收，以及 demo 前快速确认系统可用。
+
+### 20.1 AgentOps Smoke Script
+
+运行：
 
 ```bash
-uvicorn main:app --reload
-```
-
-然后运行：
-
-```bash
 python scripts/smoke_agentops_flow.py
 ```
-
-如需指定 API 地址：
-
-```powershell
-$env:API_BASE_URL="http://127.0.0.1:8000"
-python scripts/smoke_agentops_flow.py
-```
-
-### 20.2 Docker Compose 方式运行
-
-先启动容器：
-
-```powershell
-docker compose up --build
-```
-
-另开一个 PowerShell 窗口，确认服务可访问：
-
-```powershell
-curl.exe http://127.0.0.1:8000/health
-```
-
-然后在宿主机运行 smoke script：
-
-```powershell
-$env:API_BASE_URL="http://127.0.0.1:8000"
-python scripts/smoke_agentops_flow.py
-```
-
-### 20.3 Smoke Script 验证内容
 
 该脚本会自动验证：
 
@@ -1365,3 +1338,102 @@ metrics summary
 Smoke test passed.
 Validated: preview -> search_kb/classify_ticket -> approval -> confirm -> create_ticket -> metrics
 ```
+
+### 20.2 Document Backend Smoke Script
+
+运行：
+
+```bash
+python scripts/smoke_document_backend_flow.py
+```
+
+该脚本会自动验证：
+
+```text
+health
+upload document
+index document
+rag/search returns uploaded document
+delete document
+rag/search no longer returns deleted document
+```
+
+预期输出：
+
+```text
+Smoke test passed.
+Validated: health -> upload -> index -> search hit -> delete -> search miss
+```
+
+这个脚本会触发真实 embedding 调用，因此需要 `.env` 中存在有效的：
+
+```env
+DASHSCOPE_API_KEY=your_dashscope_api_key_here
+DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+EMBEDDING_MODEL=text-embedding-v4
+```
+
+### 20.3 本地开发方式运行
+
+先启动服务：
+
+```bash
+uvicorn main:app --reload
+```
+
+另开一个终端运行：
+
+```bash
+python scripts/smoke_agentops_flow.py
+python scripts/smoke_document_backend_flow.py
+```
+
+如需指定 API 地址，Windows PowerShell 可以写成：
+
+```powershell
+$env:API_BASE_URL="http://127.0.0.1:8000"
+python scripts/smoke_agentops_flow.py
+python scripts/smoke_document_backend_flow.py
+```
+
+### 20.4 Docker Compose 方式运行
+
+先启动容器：
+
+```powershell
+docker compose up --build
+```
+
+另开一个 PowerShell 窗口，确认服务可访问：
+
+```powershell
+curl.exe http://127.0.0.1:8000/health
+```
+
+然后在宿主机运行 smoke scripts：
+
+```powershell
+$env:API_BASE_URL="http://127.0.0.1:8000"
+python scripts/smoke_agentops_flow.py
+python scripts/smoke_document_backend_flow.py
+```
+
+注意：
+
+```text
+Docker Compose 使用 docker_data / docker_storage / docker_chroma_db 独立目录。
+Docker 环境下的 smoke 数据不会污染本地开发数据。
+不要把包含真实 API key 的 docker compose config 完整输出粘贴到公开位置。
+```
+
+### 20.5 Smoke Scripts 与 pytest 的区别
+
+```text
+pytest:
+验证 model / service / API 的单元或集成行为，通常使用 monkeypatch 隔离真实 Chroma、embedding 和 LLM。
+
+smoke scripts:
+调用真实运行中的 API 服务，验证 FastAPI、SQLite、Chroma、embedding 和业务链路是否能完整串起来。
+```
+
+因此 smoke scripts 不放进 GitHub Actions 默认 CI。它们用于本地手动验收和 demo 前检查。
