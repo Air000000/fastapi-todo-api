@@ -429,3 +429,43 @@ def index_document(
                 status_code=500,
                 detail=f"Document indexing failed: {exc}",
             )
+        
+
+def delete_document(
+    *,
+    document_id: str,
+    tenant_id: str,
+    chroma_collection: Any | None = None,
+    chroma_dir: Path = DEFAULT_CHROMA_DIR,
+    collection_name: str = DEFAULT_COLLECTION_NAME,
+) -> tuple[Document, int]:
+    with Session(engine) as session:
+        document = session.get(Document, document_id)
+
+        if (
+            document is None
+            or document.tenant_id != tenant_id
+            or document.status == "deleted"
+        ):
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        collection = chroma_collection or get_document_chroma_collection(
+            chroma_dir=chroma_dir,
+            collection_name=collection_name,
+        )
+
+        deleted_embeddings = delete_existing_document_chunks(
+            session=session,
+            document_id=document.id,
+            collection=collection,
+        )
+        session.refresh(document)
+
+        document.status = "deleted"
+        document.error_message = None
+        document.updated_at = utc_now()
+        session.add(document)
+        session.commit()
+        session.refresh(document)
+
+        return document, deleted_embeddings

@@ -13,6 +13,7 @@ from models.document import DocumentChunk
 from services.document_service import (
     calculate_checksum,
     create_document_from_bytes,
+    delete_document,
     get_document,
     index_document,
     list_documents,
@@ -272,3 +273,92 @@ def test_reindex_document_replaces_existing_chunks(tmp_path: Path):
     assert second_indexed.chunk_count == first_indexed.chunk_count
     assert len(chunks) == second_indexed.chunk_count
     assert fake_collection.deleted_ids == first_ids
+
+
+def test_delete_document_marks_deleted_and_removes_chunks(tmp_path: Path):
+    create_db_and_tables()
+
+    content = (
+        "# Access Card\n\n"
+        "If an employee loses an access card, they should report it to admin "
+        "and request a replacement card."
+    ).encode("utf-8")
+
+    tenant_id = unique_name("tenant_demo")
+    document = create_document_from_bytes(
+        filename="access_card.md",
+        content=content,
+        tenant_id=tenant_id,
+        uploaded_by="user_demo",
+        category="admin",
+        storage_root=tmp_path,
+    )
+
+    fake_collection = FakeChromaCollection()
+
+    indexed_document = index_document(
+        document_id=document.id,
+        tenant_id=tenant_id,
+        embedding_function=fake_embed_texts,
+        chroma_collection=fake_collection,
+    )
+
+    indexed_ids = list(fake_collection.added_ids)
+
+    deleted_document, deleted_embeddings = delete_document(
+        document_id=document.id,
+        tenant_id=tenant_id,
+        chroma_collection=fake_collection,
+    )
+
+    assert deleted_document.id == indexed_document.id
+    assert deleted_document.status == "deleted"
+    assert deleted_embeddings == len(indexed_ids)
+    assert fake_collection.deleted_ids == indexed_ids
+
+    with Session(engine) as session:
+        chunks = list(
+            session.exec(
+                select(DocumentChunk).where(
+                    DocumentChunk.document_id == document.id
+                )
+            ).all()
+        )
+
+    assert chunks == []
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_document(
+            document_id=document.id,
+            tenant_id=tenant_id,
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Document not found"
+
+
+def test_delete_document_requires_matching_tenant(tmp_path: Path):
+    create_db_and_tables()
+
+    tenant_id = unique_name("tenant_demo")
+    document = create_document_from_bytes(
+        filename="security_policy.md",
+        content=b"Security policy for internal systems.",
+        tenant_id=tenant_id,
+        uploaded_by="user_demo",
+        category="security",
+        storage_root=tmp_path,
+    )
+
+    fake_collection = FakeChromaCollection()
+
+    with pytest.raises(HTTPException) as exc_info:
+        delete_document(
+            document_id=document.id,
+            tenant_id=unique_name("tenant_other"),
+            chroma_collection=fake_collection,
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Document not found"
+    assert fake_collection.deleted_ids == []

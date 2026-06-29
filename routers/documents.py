@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, Form, Query, UploadFile
 
 from schemas.document import (
     DocumentCategory,
+    DocumentDeleteResponse,
     DocumentIndexResponse,
     DocumentListResponse,
     DocumentResponse,
@@ -14,6 +15,7 @@ from schemas.document import (
 )
 from services.document_service import (
     create_document_from_bytes,
+    delete_document as delete_document_service,
     get_document as get_document_service,
     index_document as index_document_service,
     list_documents as list_documents_service,
@@ -100,3 +102,17 @@ def get_document(document_id: str) -> DocumentResponse:
     )
 
     return DocumentResponse.model_validate(document)
+
+
+@router.delete("/{document_id}", response_model=DocumentDeleteResponse)
+def delete_document(document_id: str) -> DocumentDeleteResponse:
+    document, deleted_embeddings = delete_document_service(
+        document_id=document_id,
+        tenant_id=MOCK_TENANT_ID,
+    )
+
+    return DocumentDeleteResponse(
+        document_id=document.id,
+        status=document.status,
+        deleted_embeddings=deleted_embeddings,
+    )

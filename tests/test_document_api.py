@@ -185,3 +185,59 @@ def test_index_document_api_success(monkeypatch, tmp_path: Path):
     assert data["document_id"] == uploaded["id"]
     assert data["status"] == "indexed"
     assert data["chunk_count"] == 2
+
+
+def test_delete_document_api_success(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("DOCUMENT_STORAGE_ROOT", str(tmp_path))
+
+    with TestClient(app) as client:
+        upload_response = client.post(
+            "/documents/upload",
+            data={"category": "admin"},
+            files={
+                "file": (
+                    "api_delete_access_card.md",
+                    b"# Access Card\n\nReport lost cards to admin.",
+                    "text/markdown",
+                ),
+            },
+        )
+
+        assert upload_response.status_code == 201
+        uploaded = upload_response.json()
+
+        def fake_delete_document(*, document_id: str, tenant_id: str):
+            assert document_id == uploaded["id"]
+            assert tenant_id == "tenant_demo"
+
+            return (
+                Document(
+                    id=document_id,
+                    tenant_id=tenant_id,
+                    uploaded_by=uploaded["uploaded_by"],
+                    filename=uploaded["filename"],
+                    file_type=uploaded["file_type"],
+                    category=uploaded["category"],
+                    source_path=uploaded["source_path"],
+                    status="deleted",
+                    version=uploaded["version"],
+                    checksum=uploaded["checksum"],
+                    chunk_count=0,
+                ),
+                2,
+            )
+
+        monkeypatch.setattr(
+            documents_router,
+            "delete_document_service",
+            fake_delete_document,
+        )
+
+        delete_response = client.delete(f"/documents/{uploaded['id']}")
+
+    assert delete_response.status_code == 200
+
+    data = delete_response.json()
+    assert data["document_id"] == uploaded["id"]
+    assert data["status"] == "deleted"
+    assert data["deleted_embeddings"] == 2
