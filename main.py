@@ -25,6 +25,7 @@ from routers.agent_ops import router as agent_ops_router
 
 from models.ticket import Ticket  # noqa: F401
 from models.agent_ops import AgentRun, ApprovalRequest, ToolCall  # noqa: F401
+from models.document import Document, DocumentChunk  # noqa: F401
 
 
 load_dotenv()   # 从 .env 文件加载环境变量
