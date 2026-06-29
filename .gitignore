@@ -227,3 +227,14 @@ todos.db
 data/
 *.db
 experiments/chroma_db/
+
+# Docker local runtime data
+docker_data/
+docker_storage/
+docker_chroma_db/
+
+# Local uploaded documents
+storage/
+
+# Manual demo temp files
+tmp_manual_docs/

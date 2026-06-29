@@ -1,0 +1,19 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: enterprise-support-ai-copilot-api
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:////app/data/todos.db
+      DOCUMENT_STORAGE_ROOT: /app/storage/documents
+      SQL_ECHO: "false"
+    volumes:
+      - ./docker_data:/app/data
+      - ./docker_storage:/app/storage
+      - ./docker_chroma_db:/app/experiments/chroma_db
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
