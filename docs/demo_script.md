@@ -2,10 +2,11 @@
 
 Enterprise Support AI Copilot 演示脚本。
 
-本脚本用于展示当前 `learn-rag` 分支的核心能力：
+本脚本用于展示当前 `main` 分支的核心能力：
 
 ```text
 Enterprise RAG Core
+Document Backend
 Ticket CRUD
 Ticket Agent preview / confirm
 Human approval
@@ -24,6 +25,8 @@ AgentOps metrics summary
 ↓
 系统基于企业知识库检索相关资料
 ↓
+Document Backend 支持上传、索引、删除并影响 RAG 检索结果
+↓
 Ticket Agent 判断是否需要创建工单
 ↓
 生成 ticket preview
@@ -41,10 +44,11 @@ AgentOps 记录 agent_run / tool_calls / approval_request
 
 ```text
 1. RAG 返回 answer + sources
-2. Ticket Agent 不直接创建工单，而是先生成 preview
-3. create_ticket 必须经过 approval_request 确认
-4. search_kb / classify_ticket / create_ticket 均有 tool_call 审计记录
-5. /agent-ops/metrics/summary 能汇总 AgentOps 状态
+2. Document Backend 支持 upload / index / delete，并能影响 RAG 检索结果
+3. Ticket Agent 不直接创建工单，而是先生成 preview
+4. create_ticket 必须经过 approval_request 确认
+5. search_kb / classify_ticket / create_ticket 均有 tool_call 审计记录
+6. /agent-ops/metrics/summary 能汇总 AgentOps 状态
 ```
 
 ---
@@ -243,9 +247,266 @@ sources
 
 ---
 
-## 7. Ticket CRUD Demo
+## 7. Document Backend Demo
 
-### 7.1 Create Ticket
+本节用于验证 Document Backend MVP 的完整文档生命周期：
+
+```text
+upload
+↓
+index
+↓
+rag search can retrieve uploaded document
+↓
+delete
+↓
+rag search no longer returns deleted document
+```
+
+当前 Document Backend 支持：
+
+```http
+POST   /documents/upload
+GET    /documents
+GET    /documents/{document_id}
+POST   /documents/{document_id}/index
+DELETE /documents/{document_id}
+```
+
+### 7.1 准备唯一测试文档
+
+在项目根目录创建一份临时 Markdown 文档：
+
+```powershell
+New-Item -ItemType Directory -Force tmp_manual_docs
+
+@"
+# 蓝鲸门禁卡补办流程
+
+如果员工的蓝鲸门禁卡丢失，需要先在行政系统登记遗失信息，然后联系行政支持团队冻结旧卡，并提交补办申请。
+
+补办申请必须包含员工姓名、部门、遗失时间、遗失地点和直属主管确认。
+"@ | Set-Content -Encoding UTF8 tmp_manual_docs\blue_whale_access_card.md
+```
+
+这里使用“蓝鲸门禁卡”作为唯一关键词，方便确认 RAG 检索结果来自刚上传的文档。
+
+---
+
+### 7.2 上传文档
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/documents/upload" `
+  -F "file=@tmp_manual_docs/blue_whale_access_card.md" `
+  -F "category=admin"
+```
+
+预期返回重点：
+
+```json
+{
+  "id": "doc_xxx",
+  "filename": "blue_whale_access_card.md",
+  "file_type": "md",
+  "category": "admin",
+  "status": "uploaded",
+  "chunk_count": 0
+}
+```
+
+记录返回中的文档 ID：
+
+```text
+DOCUMENT_ID = <document_id>
+```
+
+上传成功只代表文档已经进入系统，还没有进入向量库。
+
+---
+
+### 7.3 查看 uploaded 状态
+
+```powershell
+curl.exe "http://127.0.0.1:8000/documents/<document_id>"
+```
+
+预期重点：
+
+```json
+{
+  "id": "<document_id>",
+  "status": "uploaded",
+  "category": "admin",
+  "chunk_count": 0
+}
+```
+
+---
+
+### 7.4 触发索引
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/documents/<document_id>/index"
+```
+
+预期重点：
+
+```json
+{
+  "document_id": "<document_id>",
+  "status": "indexed",
+  "chunk_count": 1
+}
+```
+
+索引成功表示系统已经完成：
+
+```text
+读取 source_path 文件
+↓
+切分 chunk
+↓
+生成 embedding
+↓
+写入 Chroma
+↓
+写入 document_chunks
+↓
+更新 documents.status = indexed
+```
+
+---
+
+### 7.5 查看 indexed 状态
+
+```powershell
+curl.exe "http://127.0.0.1:8000/documents/<document_id>"
+```
+
+预期重点：
+
+```json
+{
+  "id": "<document_id>",
+  "status": "indexed",
+  "category": "admin",
+  "chunk_count": 1
+}
+```
+
+---
+
+### 7.6 使用 RAG search 检索上传文档
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/rag/search" `
+  -H "Content-Type: application/json" `
+  -d "{\"query\":\"蓝鲸门禁卡丢失后如何补办？\",\"top_k\":5,\"category\":\"admin\"}"
+```
+
+预期结果中应能看到刚上传的文档信息，例如：
+
+```json
+{
+  "document_id": "<document_id>",
+  "filename": "blue_whale_access_card.md",
+  "category": "admin",
+  "source_type": "uploaded_document"
+}
+```
+
+字段名可能根据 response schema 略有差异，核心检查点是：
+
+```text
+1. 返回结果包含 <document_id>
+2. 返回结果包含 blue_whale_access_card.md
+3. 返回结果 category = admin
+4. 返回结果能对应刚上传的文档内容
+```
+
+---
+
+### 7.7 删除文档
+
+```powershell
+curl.exe -X DELETE "http://127.0.0.1:8000/documents/<document_id>"
+```
+
+预期重点：
+
+```json
+{
+  "document_id": "<document_id>",
+  "status": "deleted",
+  "deleted_embeddings": 1
+}
+```
+
+`deleted_embeddings` 大于 0 表示 Chroma 中对应的向量已经被删除。
+
+---
+
+### 7.8 删除后查询文档
+
+```powershell
+curl.exe "http://127.0.0.1:8000/documents/<document_id>"
+```
+
+预期返回：
+
+```json
+{
+  "detail": "Document not found"
+}
+```
+
+这是正常结果。当前 `GET /documents/{document_id}` 默认不返回 `deleted` 文档。
+
+---
+
+### 7.9 删除后再次检索
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/rag/search" `
+  -H "Content-Type: application/json" `
+  -d "{\"query\":\"蓝鲸门禁卡丢失后如何补办？\",\"top_k\":5,\"category\":\"admin\"}"
+```
+
+预期结果中不应再出现：
+
+```text
+<document_id>
+blue_whale_access_card.md
+source_type = uploaded_document
+```
+
+这说明删除不仅修改了业务数据库状态，也清理了 Chroma embeddings，RAG 不会继续召回已删除文档。
+
+---
+
+### 7.10 验收标准
+
+本 demo 通过的标准：
+
+```text
+1. POST /documents/upload 返回 status = uploaded。
+2. GET /documents/{document_id} 能看到 uploaded 状态。
+3. POST /documents/{document_id}/index 返回 status = indexed。
+4. GET /documents/{document_id} 能看到 chunk_count > 0。
+5. /rag/search 能检索到刚上传的文档。
+6. DELETE /documents/{document_id} 返回 status = deleted。
+7. deleted_embeddings > 0。
+8. 删除后 GET /documents/{document_id} 返回 404。
+9. 删除后 /rag/search 不再返回该文档。
+```
+
+这个闭环证明 Document Backend 已经接入 RAG 知识库生命周期，而不是孤立的文件上传 API。
+
+---
+
+## 8. Ticket CRUD Demo
+
+### 8.1 Create Ticket
 
 Swagger 中打开：
 
@@ -274,7 +535,7 @@ status 默认为 open
 
 ---
 
-### 7.2 List Tickets
+### 8.2 List Tickets
 
 Swagger 中打开：
 
@@ -290,7 +551,7 @@ GET /tickets
 
 ---
 
-### 7.3 Get Ticket
+### 8.3 Get Ticket
 
 Swagger 中打开：
 
@@ -308,7 +569,7 @@ GET /tickets/{ticket_id}
 
 ---
 
-### 7.4 Update Ticket
+### 8.4 Update Ticket
 
 Swagger 中打开：
 
@@ -339,7 +600,7 @@ Agent 最终不是只返回文字，而是可以接入后端业务对象。
 
 ---
 
-## 8. Ticket Agent Preview Demo
+## 9. Ticket Agent Preview Demo
 
 Swagger 中打开：
 
@@ -400,7 +661,7 @@ preview 阶段不会创建真实 ticket。
 
 ---
 
-## 9. Inspect Preview Tool Calls
+## 10. Inspect Preview Tool Calls
 
 Swagger 中打开：
 
@@ -455,13 +716,13 @@ preview 阶段的中间决策不是只存在内存里，而是进入 tool_calls 
 
 ---
 
-## 10. Approval Reject Demo
+## 11. Approval Reject Demo
 
 本节用于展示 rejected flow。
 
 注意：不要使用后续要 confirm 的 approval_request 做 reject。为了保留 confirm 演示，建议重新发起一次 preview。
 
-### 10.1 Create another preview
+### 11.1 Create another preview
 
 Swagger 中再次打开：
 
@@ -487,7 +748,7 @@ reject_demo_approval_request_id
 
 ---
 
-### 10.2 Reject approval request
+### 11.2 Reject approval request
 
 Swagger 中打开：
 
@@ -509,7 +770,7 @@ approval_request.status = rejected
 
 ---
 
-### 10.3 Inspect rejected approval
+### 11.3 Inspect rejected approval
 
 Swagger 中打开：
 
@@ -544,9 +805,9 @@ rejected approval_request 不应再被 confirm 执行。
 
 ---
 
-## 11. Ticket Agent Confirm Demo
+## 12. Ticket Agent Confirm Demo
 
-回到第 8 节的 preview 结果，使用未被 reject 的：
+回到第 9 节的 preview 结果，使用未被 reject 的：
 
 ```text
 PREVIEW_AGENT_RUN_ID
@@ -605,7 +866,7 @@ confirm 阶段会做三类校验：
 
 ---
 
-## 12. Inspect Full Tool Calls
+## 13. Inspect Full Tool Calls
 
 Swagger 中打开：
 
@@ -613,7 +874,7 @@ Swagger 中打开：
 GET /agent-ops/runs/{agent_run_id}/tool-calls
 ```
 
-填入第 8 节 preview 返回的：
+填入第 9 节 preview 返回的：
 
 ```text
 PREVIEW_AGENT_RUN_ID
@@ -652,7 +913,7 @@ create_ticket 记录用户确认后真正执行的业务动作。
 
 ---
 
-## 13. Inspect Approval Requests
+## 14. Inspect Approval Requests
 
 Swagger 中打开：
 
@@ -660,7 +921,7 @@ Swagger 中打开：
 GET /agent-ops/runs/{agent_run_id}/approval-requests
 ```
 
-填入第 8 节 preview 返回的：
+填入第 9 节 preview 返回的：
 
 ```text
 PREVIEW_AGENT_RUN_ID
@@ -687,7 +948,7 @@ create_ticket 不会在 preview 阶段直接执行，而是在 approval_request 
 
 ---
 
-## 14. Inspect AgentOps Metrics
+## 15. Inspect AgentOps Metrics
 
 Swagger 中打开：
 
@@ -745,7 +1006,7 @@ metrics summary 用于展示 AgentOps 的整体运行状态。
 
 ---
 
-## 15. Optional: Confirm Draft Tampering Demo
+## 16. Optional: Confirm Draft Tampering Demo
 
 本节用于展示 confirm 阶段的 payload consistency check。
 
@@ -801,7 +1062,7 @@ confirm 阶段不会信任客户端临时提交的 draft。
 
 ---
 
-## 16. Optional: Repeated Confirm Demo
+## 17. Optional: Repeated Confirm Demo
 
 本节用于展示 pending approval validation。
 
@@ -833,27 +1094,30 @@ approval_request 只能从 pending 被确认一次。
 
 ---
 
-## 17. Expected Demo Summary
+## 18. Expected Demo Summary
 
 完成 demo 后，系统应展示以下能力：
 
 ```text
 1. RAG 可以基于企业内部文档进行检索和问答
 2. RAG response 返回结构化 sources
-3. Ticket CRUD 可以创建、查询、更新工单
-4. Ticket Agent preview 生成 draft 和 approval_request
-5. preview 阶段记录 search_kb 和 classify_ticket tool_call
-6. reject / cancel API 可以改变 approval_request 状态
-7. confirm 阶段经过审批校验后创建真实 ticket
-8. confirm 阶段记录 create_ticket tool_call
-9. AgentOps API 可以查看 agent_runs、tool_calls、approval_requests
-10. metrics summary 可以汇总 AgentOps 状态
+3. Document Backend 可以上传、索引、删除文档，并影响 RAG 检索结果
+4. Ticket CRUD 可以创建、查询、更新工单
+5. Ticket Agent preview 生成 draft 和 approval_request
+6. preview 阶段记录 search_kb 和 classify_ticket tool_call
+7. reject / cancel API 可以改变 approval_request 状态
+8. confirm 阶段经过审批校验后创建真实 ticket
+9. confirm 阶段记录 create_ticket tool_call
+10. AgentOps API 可以查看 agent_runs、tool_calls、approval_requests
+11. metrics summary 可以汇总 AgentOps 状态
 ```
 
 建议最终展示顺序：
 
 ```text
 RAG ask
+↓
+Document Backend upload / index / delete
 ↓
 Ticket Agent preview
 ↓
@@ -870,7 +1134,7 @@ Metrics summary
 
 ---
 
-## 18. Demo Talking Points
+## 19. Demo Talking Points
 
 简短讲解版本：
 
@@ -886,7 +1150,7 @@ Metrics summary
 
 ---
 
-## 19. Optional: Run Smoke Script
+## 20. Optional: Run Smoke Script
 
 如果不想手动通过 Swagger 点击完整流程，可以运行 smoke script：
 
