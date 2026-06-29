@@ -2,16 +2,31 @@
 
 Enterprise Support AI Copilot 安全设计说明。
 
-本文档记录当前 Ticket Agent 与 AgentOps MVP 中已经实现的关键安全边界，重点覆盖：
+本文档记录当前 MVP 已实现的安全边界、仍然存在的风险，以及后续生产化需要补齐的控制项。
+
+当前项目覆盖：
 
 ```text
-preview / confirm 两阶段执行
-approval_request ownership validation
-pending approval validation
-draft payload consistency check
-server-side approval draft
-tool_calls audit
-AgentOps metrics
+Enterprise RAG Core
+Document Backend
+Ticket Agent preview / confirm
+AgentOps audit
+Retrieval Logs / Metrics
+Docker Compose local runtime
+Smoke Scripts
+```
+
+本文档重点说明：
+
+```text
+1. Ticket Agent 的 preview / confirm 两阶段执行边界
+2. approval_request ownership / pending / draft consistency 校验
+3. Document Backend 的上传、索引、删除安全边界
+4. RAG tenant / category filter 的 MVP 边界
+5. AgentOps 审计数据的能力与限制
+6. Docker Compose 本地运行边界
+7. API key / .env 管理边界
+8. 公网暴露、rate limit、成本控制和生产化风险
 ```
 
 ---
@@ -26,31 +41,44 @@ AgentOps
 Ticket creation workflow
 Approval request workflow
 Tool call audit
+Document Backend
+RAG retrieval
+Docker Compose local runtime
+Smoke Scripts
 ```
 
 相关 API：
 
 ```http
-POST /agent/ticket/preview
-POST /agent/ticket/confirm
+POST   /rag/search
+POST   /rag/ask
 
-GET  /agent-ops/runs
-GET  /agent-ops/runs/{agent_run_id}
-GET  /agent-ops/runs/{agent_run_id}/tool-calls
-GET  /agent-ops/runs/{agent_run_id}/approval-requests
-GET  /agent-ops/metrics/summary
+POST   /documents/upload
+GET    /documents
+GET    /documents/{document_id}
+POST   /documents/{document_id}/index
+DELETE /documents/{document_id}
 
-POST /agent-ops/approval-requests/{approval_request_id}/reject
-POST /agent-ops/approval-requests/{approval_request_id}/cancel
+POST   /agent/ticket/preview
+POST   /agent/ticket/confirm
+
+GET    /agent-ops/runs
+GET    /agent-ops/runs/{agent_run_id}
+GET    /agent-ops/runs/{agent_run_id}/tool-calls
+GET    /agent-ops/runs/{agent_run_id}/approval-requests
+GET    /agent-ops/metrics/summary
+
+POST   /agent-ops/approval-requests/{approval_request_id}/reject
+POST   /agent-ops/approval-requests/{approval_request_id}/cancel
 ```
 
-当前版本使用 mock tenant / user context。后续接入真实认证系统后，`tenant_id` 和 `user_id` 应从认证上下文中获取，而不是由客户端直接传入。
+当前版本使用 mock tenant / user context。后续接入真实认证系统后，`tenant_id` 和 `user_id` 必须从认证上下文中获取，而不是由客户端直接传入。
 
 ---
 
-## 2. Security Goals
+## 2. Current MVP Security Goals
 
-Ticket Agent 的安全目标是：
+当前 MVP 的安全目标是：
 
 ```text
 1. Agent 不直接执行状态变更动作
@@ -60,6 +88,9 @@ Ticket Agent 的安全目标是：
 5. rejected / cancelled / approved approval_request 不能再次执行
 6. 每次工具调用都要留下结构化审计记录
 7. 工具调用失败需要进入 AgentOps 记录
+8. Document Backend 删除文档时同步清理 Chroma embeddings
+9. Docker Compose 本地运行默认只绑定 127.0.0.1
+10. API key 通过 .env 管理，不提交到 GitHub
 ```
 
 其中，`create_ticket` 属于状态变更动作，因此不能在 preview 阶段直接执行。
@@ -70,26 +101,34 @@ Ticket Agent 的安全目标是：
 
 当前系统中的信任边界如下：
 
-| 数据来源                        | 信任级别    | 处理方式                                 |
-| --------------------------- | ------- | ------------------------------------ |
-| client request              | 不可信     | 需要 schema validation 和业务校验           |
-| preview draft in response   | 不可信副本   | 仅供用户查看和 confirm 提交                   |
-| approval_request.draft_json | 服务端可信记录 | confirm 阶段创建 ticket 的依据              |
-| agent_run_id                | 不完全可信   | 必须和 approval_request 绑定校验            |
-| approval_request_id         | 不完全可信   | 必须校验 tenant_id、agent_run_id 和 status |
-| RAG retrieved sources       | 辅助依据    | 进入 response 和 tool_call audit        |
-| tool_call records           | 审计记录    | 用于追踪工具输入、输出、状态和错误                    |
+| 数据来源 | 信任级别 | 当前处理方式 |
+|---|---|---|
+| client request | 不可信 | 需要 Pydantic schema validation 和业务校验 |
+| preview draft in response | 不可信副本 | 仅供用户查看和 confirm 提交 |
+| approval_request.draft_json | 服务端可信记录 | confirm 阶段创建 ticket 的依据 |
+| agent_run_id | 不完全可信 | 必须和 approval_request 绑定校验 |
+| approval_request_id | 不完全可信 | 必须校验 tenant_id、agent_run_id 和 status |
+| uploaded file | 不可信 | 当前仅限制 md/txt，后续需要大小限制、内容扫描和权限校验 |
+| RAG query | 不可信 | 当前执行 schema validation 和 category filter，后续需要权限上下文 |
+| RAG retrieved sources | 辅助依据 | 进入 response 和 tool_call audit |
+| Chroma embeddings | 派生数据 | 删除文档时需要同步删除对应 embeddings |
+| tool_call records | 审计记录 | 用于追踪工具输入、输出、状态和错误 |
+| `.env` | 本地敏感配置 | 不应提交到 GitHub，不应公开粘贴 |
+| Docker runtime data | 本地运行数据 | 存放于 docker_data / docker_storage / docker_chroma_db，不应提交 |
 
 核心原则：
 
 ```text
 客户端提交的 draft 只能用于一致性校验；
 真正创建 ticket 的 payload 必须来自服务端保存的 approval_request.draft_json。
+
+上传文档在进入 RAG 前必须经过后端登记、索引和 metadata 绑定；
+删除文档时必须同时清理业务数据库记录和向量库 embeddings。
 ```
 
 ---
 
-## 4. Preview / Confirm Two-Stage Execution
+## 4. Ticket Agent Preview / Confirm Two-Stage Execution
 
 Ticket Agent 使用两阶段流程：
 
@@ -126,8 +165,6 @@ agent_runs: 1 条
 tool_calls: search_kb + classify_ticket
 approval_requests: 1 条 pending
 ```
-
----
 
 ### 4.2 Confirm Stage
 
@@ -334,7 +371,208 @@ request.draft
 
 ---
 
-## 9. Tool Call Audit
+## 9. Document Backend Security Boundaries
+
+Document Backend 当前支持：
+
+```http
+POST   /documents/upload
+GET    /documents
+GET    /documents/{document_id}
+POST   /documents/{document_id}/index
+DELETE /documents/{document_id}
+```
+
+当前文档生命周期：
+
+```text
+upload
+↓
+documents.status = uploaded
+↓
+manual index
+↓
+documents.status = indexed
+↓
+RAG search can retrieve uploaded document
+↓
+delete
+↓
+documents.status = deleted
+↓
+Chroma embeddings are removed
+↓
+RAG search no longer returns deleted document
+```
+
+### 9.1 已实现边界
+
+当前 MVP 已实现：
+
+```text
+1. 上传文档先进入 documents 表，不会自动进入向量库
+2. 只有调用 /documents/{document_id}/index 后才会写入 Chroma
+3. 文档 chunk metadata 绑定 tenant_id、category、document_id
+4. 删除文档时会清理 document_chunks
+5. 删除文档时会删除 Chroma 中对应 embeddings
+6. 默认 GET /documents/{document_id} 不返回 deleted 文档
+7. /rag/search 删除后不应继续召回该文档
+```
+
+这些边界用于保证 Document Backend 不是孤立文件上传 API，而是接入了 RAG 知识库生命周期。
+
+### 9.2 当前 MVP 限制
+
+当前 Document Backend 仍然不适合生产使用，原因包括：
+
+```text
+1. 尚未接入真实用户认证
+2. tenant_id 仍来自 mock context
+3. 尚未实现真实 tenant 级文档权限校验
+4. 尚未实现上传文件大小限制
+5. 尚未实现病毒扫描或恶意内容检测
+6. 尚未实现敏感信息检测或脱敏
+7. 尚未实现文档版本管理
+8. 尚未实现异步索引任务队列
+9. 尚未实现索引任务失败重试和 job logs
+10. 尚未实现 PDF / Word 等复杂文档解析安全策略
+```
+
+### 9.3 Upload Risk
+
+上传接口接收用户文件，因此上传内容必须视为不可信输入。
+
+后续生产化前需要补齐：
+
+```text
+1. 文件大小限制
+2. 文件类型 allowlist
+3. MIME type 校验
+4. 文件名规范化
+5. 存储路径隔离
+6. 恶意文件扫描
+7. 文档内容敏感信息检测
+8. 每个 tenant 的存储配额
+```
+
+### 9.4 Indexing Risk
+
+`POST /documents/{document_id}/index` 会触发：
+
+```text
+读取文件
+切分文本
+调用 embedding API
+写入 Chroma
+写入 document_chunks
+```
+
+因此存在以下风险：
+
+```text
+1. 大文件导致 embedding 成本过高
+2. 大量重复索引导致 API 费用增加
+3. 恶意用户反复触发 index 造成资源消耗
+4. embedding API 失败导致部分索引状态不一致
+5. 并发索引同一文档可能导致重复 chunk 或重复 embeddings
+```
+
+当前 MVP 适合本地 demo 和功能验证。生产化前需要引入：
+
+```text
+1. index job 队列
+2. indexing 状态机
+3. 幂等索引设计
+4. per-user / per-tenant rate limit
+5. token / embedding 成本统计
+6. 失败重试和补偿逻辑
+7. 操作日志和管理员可见的 job logs
+```
+
+### 9.5 Delete Risk
+
+删除接口必须保证：
+
+```text
+业务数据库中的 document_chunks 被清理
+Chroma 中对应 embeddings 被删除
+后续 RAG 不再召回已删除文档
+```
+
+当前 MVP 已覆盖删除后 search miss 的 smoke 验证。
+
+后续生产化前还需要考虑：
+
+```text
+1. 软删除和硬删除策略
+2. 删除操作权限控制
+3. 删除审计记录
+4. 删除失败时的补偿任务
+5. 多版本文档删除时的版本级清理
+```
+
+---
+
+## 10. RAG / Tenant / Category Boundaries
+
+当前 RAG API：
+
+```http
+POST /rag/search
+POST /rag/ask
+```
+
+当前系统支持：
+
+```text
+tenant_id metadata filter
+category metadata filter
+structured sources
+retrieval_status
+no-context fallback
+retrieval logs / metrics
+```
+
+### 10.1 当前实现边界
+
+当前 API 层只暴露 `category` filter。`tenant_id` 暂时由系统内部 mock tenant context 提供：
+
+```text
+tenant_demo
+```
+
+这意味着当前版本可以展示 tenant metadata filter 的工程形态，但不能视为真实多租户权限隔离。
+
+### 10.2 风险说明
+
+如果没有真实认证和授权，生产环境可能出现：
+
+```text
+1. 用户访问不属于自己 tenant 的文档
+2. 用户通过 category 枚举探测其他知识分类
+3. 上传文档被错误地写入公共检索空间
+4. RAG sources 泄露文档路径、文档标题或敏感 metadata
+5. 未授权用户消耗 embedding / LLM API 成本
+```
+
+### 10.3 后续生产化要求
+
+生产化前必须补齐：
+
+```text
+1. authentication
+2. authorization
+3. tenant_id 从认证上下文获取
+4. user_id 从认证上下文获取
+5. RAG search 按 tenant_id 强制过滤
+6. Document Backend 按 tenant_id 强制隔离
+7. AgentOps 查询按 tenant 或管理员权限隔离
+8. sources 字段做权限过滤
+```
+
+---
+
+## 11. Tool Call Audit
 
 当前 Ticket Agent 会记录三个工具调用：
 
@@ -344,7 +582,7 @@ classify_ticket
 create_ticket
 ```
 
-### 9.1 search_kb
+### 11.1 search_kb
 
 `search_kb` 记录知识库检索动作。
 
@@ -377,9 +615,7 @@ create_ticket
 记录召回文档 ID 和 top distance
 ```
 
----
-
-### 9.2 classify_ticket
+### 11.2 classify_ticket
 
 `classify_ticket` 记录工单判断动作。
 
@@ -414,9 +650,7 @@ create_ticket
 记录判断时可见的 sources 信息
 ```
 
----
-
-### 9.3 create_ticket
+### 11.3 create_ticket
 
 `create_ticket` 记录真实 ticket 创建动作。
 
@@ -452,12 +686,13 @@ create_ticket
 
 ---
 
-## 10. Failure Recording
+## 12. Failure Recording
 
 工具调用失败时，系统应更新对应 `tool_call`：
 
 ```text
 status = failed
+error_type = <machine-readable failure type>
 error_message = <exception message>
 ```
 
@@ -470,17 +705,19 @@ result_summary = <failure summary>
 
 当前重点失败路径：
 
-| Failure point          | Expected record                                    |
-| ---------------------- | -------------------------------------------------- |
-| search_kb failed       | search_kb tool_call failed, agent_run failed       |
+| Failure point | Expected record |
+|---|---|
+| search_kb failed | search_kb tool_call failed, agent_run failed |
 | classify_ticket failed | classify_ticket tool_call failed, agent_run failed |
-| create_ticket failed   | create_ticket tool_call failed, agent_run failed   |
+| create_ticket failed | create_ticket tool_call failed, agent_run failed |
+| document index failed | document status / error should be visible to caller |
+| embedding API failed | error should not be silently swallowed |
 
-失败记录的目标是让错误进入结构化 AgentOps 数据，而不是只存在于控制台日志。
+失败记录的目标是让错误进入结构化数据，而不是只存在于控制台日志。
 
 ---
 
-## 11. Approval Reject / Cancel
+## 13. Approval Reject / Cancel
 
 当前系统支持：
 
@@ -489,7 +726,7 @@ POST /agent-ops/approval-requests/{approval_request_id}/reject
 POST /agent-ops/approval-requests/{approval_request_id}/cancel
 ```
 
-### 11.1 Reject
+### 13.1 Reject
 
 Reject 表示用户明确拒绝该操作。
 
@@ -501,9 +738,7 @@ pending → rejected
 
 Rejected approval_request 不允许再次 confirm。
 
----
-
-### 11.2 Cancel
+### 13.2 Cancel
 
 Cancel 表示操作被取消。
 
@@ -515,32 +750,24 @@ pending → cancelled
 
 Cancelled approval_request 不允许再次 confirm。
 
----
+### 13.3 Approval Decision Reason
 
-## 12. Approval Decision Reason
+审批请求会记录 `decision_reason`，用于说明审批结果背后的原因。
 
-审批请求现在会记录 `decision_reason`，用于说明审批结果背后的原因。
+审批通过、拒绝或取消后，系统可以记录：
 
-当用户拒绝或取消审批请求时，系统会保存：
-
-* 审批状态：`rejected` 或 `cancelled`
-* 操作人：`approved_by`
-* 决策原因：`decision_reason`
-* 决策时间：`decided_at`
+```text
+审批状态
+操作人 / mock user
+决策原因
+决策时间
+```
 
 这避免了审批记录只包含状态、缺少上下文的问题，也方便后续审计和复盘。
 
-## Tool Call Error Type
+---
 
-工具调用失败时，系统会记录两个层级的信息：
-
-* `error_type`：机器可聚合的失败类型。
-* `error_message`：具体错误信息。
-
-这种分层设计可以避免只依赖自由文本错误信息，也能支持 metrics summary 对失败类型进行聚合统计。
-
-
-## 13. Metrics Summary
+## 14. AgentOps Metrics Summary
 
 AgentOps metrics summary 用于查看当前系统运行统计。
 
@@ -578,48 +805,300 @@ Agent run 是否完成
 tool_call 是否全部成功
 approval_request 是否仍有 pending
 是否存在 failed tool_call
+失败 tool_call 的 error_type 分布
+```
+
+### 14.1 当前限制
+
+当前 AgentOps metrics 适合 MVP 观察，不等价于生产级监控系统。后续需要补充：
+
+```text
+1. 时间窗口筛选
+2. tenant 维度筛选
+3. user 维度筛选
+4. endpoint latency 指标
+5. embedding / LLM 成本指标
+6. dashboard
+7. alerting
 ```
 
 ---
 
-## 14. Current Limitations
+## 15. Docker Compose Local Runtime Boundary
 
-当前 MVP 仍有以下限制：
+当前 Docker Compose 设计目标是本地运行、demo 和交付复现，不是生产部署。
+
+当前配置的安全边界：
+
+```text
+1. 服务端口绑定 127.0.0.1:8000
+2. API 只在本机可访问
+3. 使用 docker_data / docker_storage / docker_chroma_db 独立运行目录
+4. 通过 env_file: .env 注入本地环境变量
+5. .env 不应提交到 GitHub
+```
+
+### 15.1 Public Exposure Risk
+
+当前项目不能直接暴露到公网。
+
+原因包括：
+
+```text
+1. 尚未接入真实 authentication
+2. 尚未接入真实 authorization
+3. tenant_id / user_id 仍是 mock context
+4. Document upload 缺少生产级文件安全控制
+5. RAG / ask / index 可能消耗真实模型 API 成本
+6. AgentOps API 暂未做管理员权限隔离
+7. SQLite 不适合作为公网生产数据库
+8. 缺少 rate limit、WAF、TLS、reverse proxy 和审计告警
+```
+
+如果需要部署到共享环境或公网，必须先补齐生产化安全控制。
+
+### 15.2 Docker Runtime Data
+
+Docker Compose 使用独立目录：
+
+```text
+docker_data/
+docker_storage/
+docker_chroma_db/
+```
+
+这些目录包含运行数据，不应提交：
+
+```text
+SQLite 数据库
+上传文档
+Chroma embeddings
+本地 demo 产生的临时数据
+```
+
+这些目录应加入 `.gitignore`。
+
+---
+
+## 16. API Key and `.env` Boundary
+
+当前项目通过 `.env` 管理本地模型 API 配置：
+
+```env
+DASHSCOPE_API_KEY=your_dashscope_api_key_here
+DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+DASHSCOPE_MODEL=qwen3.5-plus
+EMBEDDING_MODEL=text-embedding-v4
+```
+
+### 16.1 安全要求
+
+```text
+1. .env 不应提交到 GitHub
+2. .env 不应被 Dockerfile COPY 进镜像
+3. .dockerignore 应包含 .env
+4. docker compose config 会展开 .env，不能把完整输出公开粘贴
+5. API key 泄露后应及时轮换
+6. 本地 shell_env 和 .env 应保持一致，避免 Docker 与本机行为不一致
+```
+
+### 16.2 环境来源风险
+
+本地运行时可能存在多个配置来源：
+
+```text
+PowerShell / shell environment
+.env file
+Docker Compose env_file
+IDE / terminal injected environment
+```
+
+推荐规则：
+
+```text
+.env 是项目本地运行的唯一配置源。
+Docker、本地 uvicorn、smoke scripts 都应以 .env 为准。
+不要长期依赖 shell_env 里偶然存在的 key。
+```
+
+---
+
+## 17. Rate Limit and Cost Control Boundary
+
+当前项目会在以下场景调用真实模型或 embedding API：
+
+```text
+RAG ask
+Document index
+Chroma index build
+Smoke scripts
+可能的 Agent preview 检索链路
+```
+
+当前 MVP 尚未实现生产级 rate limit 和成本控制，因此存在：
+
+```text
+1. 高频请求导致 API 费用增加
+2. 大文档索引导致 embedding 成本增加
+3. 恶意用户反复调用 /documents/{document_id}/index
+4. 恶意用户反复调用 /rag/ask
+5. smoke scripts 在错误环境中反复运行导致额外成本
+```
+
+生产化前需要补齐：
+
+```text
+1. per-user rate limit
+2. per-tenant rate limit
+3. daily budget limit
+4. embedding token / cost accounting
+5. LLM token / cost accounting
+6. index job quota
+7. request timeout
+8. retry policy with backoff
+9. admin-visible cost dashboard
+```
+
+---
+
+## 18. Smoke Scripts Boundary
+
+当前项目提供：
+
+```text
+scripts/smoke_agentops_flow.py
+scripts/smoke_document_backend_flow.py
+```
+
+Smoke scripts 的定位：
+
+```text
+调用真实运行中的 API 服务
+验证 FastAPI、SQLite、Chroma、embedding 和业务链路能否串起来
+用于本地验收、Docker Compose 验收和 demo 前检查
+```
+
+Smoke scripts 与 pytest 的区别：
+
+```text
+pytest:
+验证 model / service / API 的单元或集成行为，通常使用 monkeypatch 隔离外部依赖。
+
+smoke scripts:
+调用真实运行中的 API 服务，可能触发真实 embedding / LLM 调用。
+```
+
+因此：
+
+```text
+1. smoke scripts 不进入默认 GitHub Actions CI
+2. smoke scripts 运行前需要有效 .env
+3. Document Backend smoke 会触发真实 embedding
+4. 运行失败时需要清理临时上传文档
+5. 不应在无成本控制的公网环境中开放给任意用户触发
+```
+
+---
+
+## 19. Current Production Limitations
+
+当前 MVP 不能直接用于生产环境，主要限制如下：
 
 ```text
 1. tenant_id / user_id 仍使用 mock context
-2. 尚未接入真实认证和授权系统
-3. AgentOps API 暂未区分管理员权限
-4. approval_request reject / cancel 尚未记录操作人和原因
-5. tool_call error_type 仍待细化
-6. SQLite 仅用于本地开发和 MVP 演示
-7. 数据库 schema 变更尚未接入 Alembic migration
+2. 尚未接入真实 authentication
+3. 尚未接入真实 authorization
+4. AgentOps API 暂未区分管理员权限
+5. Document Backend 缺少生产级上传安全控制
+6. Document Backend 缺少文件大小限制、病毒扫描和敏感内容检测
+7. RAG sources 暂未做生产级权限过滤
+8. /documents/{document_id}/index 缺少 rate limit 和成本控制
+9. /rag/ask 缺少 rate limit 和成本控制
+10. SQLite 仅用于本地开发和 MVP 演示
+11. 数据库 schema 变更尚未接入 Alembic migration
+12. Docker Compose 当前是本地运行版，不是生产部署版
+13. 缺少 TLS、reverse proxy、WAF、日志脱敏和告警
+14. 缺少 request_id / trace_id 贯穿全链路
+15. 缺少 PII / sensitive data policy
 ```
 
 ---
 
-## 15. Planned Improvements
+## 20. Production Hardening Checklist
 
-后续安全增强方向：
+后续生产化建议按以下顺序推进：
+
+### 20.1 Identity and Access Control
 
 ```text
-1. 接入真实 authentication / authorization
-2. 从认证上下文获取 tenant_id 和 user_id
-3. 为 AgentOps API 添加管理员权限边界
-4. approval_request 增加 rejected_by / cancelled_by / reason
-5. tool_calls 增加 error_type
-6. 增加 request_id / trace_id
-7. 接入 Alembic 管理数据库迁移
-8. 将 SQLite 替换为 PostgreSQL
-9. 对高风险工具增加 allowlist
-10. 对工具输入增加更严格的 schema validation
+1. 接入 authentication
+2. 接入 authorization
+3. 从认证上下文获取 tenant_id
+4. 从认证上下文获取 user_id
+5. AgentOps API 增加管理员权限边界
+6. Document Backend 增加文档 owner / tenant 权限校验
+```
+
+### 20.2 Document Security
+
+```text
+1. 文件大小限制
+2. 文件类型 allowlist
+3. MIME type 校验
+4. 文件名规范化
+5. 病毒扫描
+6. 敏感内容检测
+7. 文档版本管理
+8. index job logs
+9. 异步 indexing queue
+10. 删除补偿任务
+```
+
+### 20.3 RAG and Model Usage Security
+
+```text
+1. RAG search 强制 tenant filter
+2. sources 字段权限过滤
+3. prompt injection 检测
+4. no-context 拒答策略继续强化
+5. per-user / per-tenant rate limit
+6. embedding / LLM 成本统计
+7. daily budget limit
+8. timeout / retry / circuit breaker
+```
+
+### 20.4 AgentOps and Audit
+
+```text
+1. request_id / trace_id
+2. 时间窗口 metrics
+3. tenant / user 维度 metrics
+4. dashboard
+5. audit log retention policy
+6. error_type taxonomy
+7. alerting
+8. 日志脱敏
+```
+
+### 20.5 Infrastructure
+
+```text
+1. PostgreSQL 替换 SQLite
+2. Alembic migration
+3. 生产版 Docker Compose 或 Kubernetes manifests
+4. TLS
+5. reverse proxy
+6. WAF
+7. secret manager
+8. backup / restore
+9. monitoring / logging stack
 ```
 
 ---
 
-## 16. Security Summary
+## 21. Security Summary
 
-当前 Ticket Agent 的安全边界可以概括为：
+当前系统的安全边界可以概括为：
 
 ```text
 Agent can suggest, but cannot directly execute state-changing actions.
@@ -629,7 +1108,13 @@ Approval must still be pending.
 Confirm draft must match the server-side approval draft.
 Ticket creation uses server-side draft_json, not untrusted client payload.
 Every major tool action is recorded in tool_calls.
-AgentOps APIs expose runs, tool calls, approvals, and metrics for inspection.
+Document upload does not automatically enter RAG until indexed.
+Document deletion removes corresponding Chroma embeddings.
+RAG currently demonstrates tenant/category filtering, but tenant_id is still mock.
+Docker Compose is local-only and binds 127.0.0.1.
+.env is local secret configuration and must not be committed or publicly pasted.
+Smoke scripts are manual validation tools, not default CI jobs.
+The current project is an MVP and demo system, not production-ready.
 ```
 
 ---
